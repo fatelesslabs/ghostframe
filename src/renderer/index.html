@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline';
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data: blob:;
+        font-src 'self';
+        connect-src 'self' https://api.openai.com https://api.anthropic.com https://generativelanguage.googleapis.com;
+        worker-src 'none';
+        object-src 'none';
+        media-src 'self';
+    "
+    />
+    <title>Ghostframe</title>
+    <style>
+      :root {
+        /* Color scheme for stealth overlay */
+        --bg-primary: rgba(15, 15, 15, 0.95);
+        --bg-secondary: rgba(25, 25, 25, 0.9);
+        --bg-tertiary: rgba(35, 35, 35, 0.85);
+        --text-primary: #ffffff;
+        --text-secondary: #cccccc;
+        --text-muted: #888888;
+        --accent-primary: #00d4ff;
+        --accent-secondary: #0099cc;
+        --success: #00ff88;
+        --warning: #ffaa00;
+        --error: #ff4444;
+        --border: rgba(255, 255, 255, 0.1);
+        --shadow: rgba(0, 0, 0, 0.5);
+
+        /* Layout variables */
+        --border-radius: 8px;
+        --border-radius-sm: 4px;
+        --spacing-xs: 4px;
+        --spacing-sm: 8px;
+        --spacing-md: 16px;
+        --spacing-lg: 24px;
+        --spacing-xl: 32px;
+
+        /* Typography */
+        --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        --font-size-xs: 0.75rem;
+        --font-size-sm: 0.875rem;
+        --font-size-md: 1rem;
+        --font-size-lg: 1.125rem;
+        --font-size-xl: 1.25rem;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: var(--font-family);
+        background: transparent;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-app-region: no-drag;
+      }
+
+      .app {
+        width: 100%;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--border-radius);
+        backdrop-filter: blur(20px);
+        box-shadow: 0 10px 30px var(--shadow);
+      }
+
+      /* Header */
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--spacing-sm) var(--spacing-md);
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+        -webkit-app-region: drag;
+      }
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+      }
+
+      .logo {
+        width: 20px;
+        height: 20px;
+        background: var(--accent-primary);
+        border-radius: var(--border-radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--bg-primary);
+        font-weight: bold;
+        font-size: var(--font-size-xs);
+      }
+
+      .app-title {
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        font-size: var(--font-size-xs);
+        color: var(--text-muted);
+      }
+
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--text-muted);
+      }
+
+      .status-dot.active {
+        background: var(--success);
+        box-shadow: 0 0 6px var(--success);
+      }
+
+      .status-dot.error {
+        background: var(--error);
+        box-shadow: 0 0 6px var(--error);
+      }
+
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        -webkit-app-region: no-drag;
+      }
+
+      .header-button {
+        width: 24px;
+        height: 24px;
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        border-radius: var(--border-radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+      }
+
+      .header-button:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+      }
+
+      /* Main content */
+      .main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* Mode selector */
+      .mode-selector {
+        display: flex;
+        padding: var(--spacing-sm);
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .mode-button {
+        flex: 1;
+        padding: var(--spacing-sm);
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        border-radius: var(--border-radius-sm);
+        font-size: var(--font-size-sm);
+        transition: all 0.2s ease;
+      }
+
+      .mode-button.active {
+        background: var(--accent-primary);
+        color: var(--bg-primary);
+      }
+
+      .mode-button:not(.active):hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+      }
+
+      /* Content area */
+      .content {
+        flex: 1;
+        padding: var(--spacing-md);
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+
+      /* Custom scrollbar */
+      .content::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .content::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .content::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 3px;
+      }
+
+      .content::-webkit-scrollbar-thumb:hover {
+        background: var(--text-muted);
+      }
+
+      /* Utility classes */
+      .hidden {
+        display: none !important;
+      }
+
+      .fade-in {
+        animation: fadeIn 0.3s ease;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Button styles */
+      .btn {
+        padding: var(--spacing-sm) var(--spacing-md);
+        border: 1px solid var(--border);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-radius: var(--border-radius-sm);
+        cursor: pointer;
+        font-size: var(--font-size-sm);
+        transition: all 0.2s ease;
+        user-select: none;
+      }
+
+      .btn:hover {
+        background: var(--bg-secondary);
+        border-color: var(--accent-primary);
+      }
+
+      .btn.primary {
+        background: var(--accent-primary);
+        border-color: var(--accent-primary);
+        color: var(--bg-primary);
+      }
+
+      .btn.primary:hover {
+        background: var(--accent-secondary);
+        border-color: var(--accent-secondary);
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* Input styles */
+      .input {
+        padding: var(--spacing-sm);
+        border: 1px solid var(--border);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-radius: var(--border-radius-sm);
+        font-size: var(--font-size-sm);
+        width: 100%;
+      }
+
+      .input:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
+      }
+
+      .input::placeholder {
+        color: var(--text-muted);
+      }
+
+      /* Toast notifications */
+      .toast-container {
+        position: fixed;
+        top: var(--spacing-md);
+        right: var(--spacing-md);
+        z-index: 1000;
+        pointer-events: none;
+      }
+
+      .toast {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--border-radius);
+        padding: var(--spacing-md);
+        margin-bottom: var(--spacing-sm);
+        box-shadow: 0 4px 12px var(--shadow);
+        animation: slideIn 0.3s ease;
+        pointer-events: auto;
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" class="app">
+      <header class="header">
+        <div class="header-left">
+          <div class="logo">G</div>
+          <div class="app-title">Ghostframe</div>
+          <div class="status-indicator">
+            <div class="status-dot" id="status-dot"></div>
+            <span id="status-text">Inactive</span>
+          </div>
+        </div>
+        <div class="header-right">
+          <button class="header-button" id="settings-btn" title="Settings">
+            ⚙
+          </button>
+          <button class="header-button" id="minimize-btn" title="Minimize">
+            -
+          </button>
+          <button class="header-button" id="close-btn" title="Close">×</button>
+        </div>
+      </header>
+
+      <div class="mode-selector">
+        <button class="mode-button active" data-mode="overlay">
+          Cluely Mode
+        </button>
+        <button class="mode-button" data-mode="automation">
+          Automation Mode
+        </button>
+      </div>
+
+      <main class="main">
+        <div class="content" id="content">
+          <!-- Content will be dynamically loaded here -->
+        </div>
+      </main>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Include the main application script -->
+    <script src="app.js"></script>
+  </body>
+</html>

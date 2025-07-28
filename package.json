@@ -1,0 +1,119 @@
+{
+  "name": "ghostframe",
+  "productName": "Ghostframe",
+  "version": "1.0.0",
+  "description": "Dual-feature stealth AI assistant and browser automation",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "start": "npm run build && electron .",
+    "dev": "concurrently \"npm run build:watch\" \"wait-on dist/main/index.js && electron .\"",
+    "build": "npm run build:main && npm run build:renderer",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:renderer": "tsc -p tsconfig.renderer.json",
+    "build:watch": "concurrently \"npm run build:main -- --watch\" \"npm run build:renderer -- --watch\"",
+    "build:quick": "tsc -p tsconfig.main.json --noEmitOnError false && tsc -p tsconfig.renderer.json --noEmitOnError false",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish",
+    "lint": "eslint src --ext .ts,.js",
+    "test": "jest"
+  },
+  "keywords": [
+    "ai",
+    "stealth",
+    "automation",
+    "browser",
+    "assistant",
+    "overlay"
+  ],
+  "author": {
+    "name": "Ghostframe Team",
+    "email": "team@ghostframe.dev"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^1.2.0",
+    "ws": "^8.16.0",
+    "puppeteer-core": "^21.11.0",
+    "openai": "^4.28.0",
+    "@anthropic-ai/sdk": "^0.17.1",
+    "electron-squirrel-startup": "^1.0.1"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.8.1",
+    "@electron-forge/maker-deb": "^7.8.1",
+    "@electron-forge/maker-dmg": "^7.8.1",
+    "@electron-forge/maker-rpm": "^7.8.1",
+    "@electron-forge/maker-squirrel": "^7.8.1",
+    "@electron-forge/maker-zip": "^7.8.1",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.8.1",
+    "@electron-forge/plugin-fuses": "^7.8.1",
+    "@electron/fuses": "^1.8.0",
+    "@types/node": "^20.11.16",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^6.20.0",
+    "@typescript-eslint/parser": "^6.20.0",
+    "concurrently": "^8.2.2",
+    "electron": "^30.0.5",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "typescript": "^5.3.3",
+    "wait-on": "^7.2.0"
+  },
+  "forge": {
+    "packagerConfig": {
+      "asar": true,
+      "icon": "./assets/icon",
+      "executableName": "Ghostframe",
+      "appVersion": "1.0.0",
+      "productName": "Ghostframe",
+      "companyName": "Ghostframe Team",
+      "description": "Dual-feature stealth AI assistant and browser automation",
+      "copyright": "Copyright © 2024 Ghostframe Team"
+    },
+    "makers": [
+      {
+        "name": "@electron-forge/maker-squirrel",
+        "platforms": [
+          "win32"
+        ],
+        "config": {
+          "name": "ghostframe",
+          "authors": "Ghostframe Team",
+          "exe": "Ghostframe.exe",
+          "setupExe": "GhostframeSetup.exe",
+          "setupIcon": "./assets/icon.ico",
+          "iconUrl": "./assets/icon.ico"
+        }
+      },
+      {
+        "name": "@electron-forge/maker-zip",
+        "platforms": [
+          "win32"
+        ],
+        "config": {}
+      },
+      {
+        "name": "@electron-forge/maker-zip",
+        "platforms": [
+          "darwin"
+        ],
+        "config": {}
+      },
+      {
+        "name": "@electron-forge/maker-deb",
+        "platforms": [
+          "linux"
+        ],
+        "config": {}
+      },
+      {
+        "name": "@electron-forge/maker-rpm",
+        "platforms": [
+          "linux"
+        ],
+        "config": {}
+      }
+    ]
+  }
+}
