@@ -1,6 +1,9 @@
+// Migrated AIService for new Electron/React setup
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
+import Store from "electron-store";
+import { BrowserWindow } from "electron";
 
 export interface AIConfig {
   provider: "gemini" | "openai" | "claude";
@@ -20,67 +23,59 @@ export class AIService {
   private provider: "gemini" | "openai" | "claude" | null = null;
   private client: any = null;
   private session: any = null;
+  private store: Store;
   private conversationHistory: Array<{
     text: string;
     response: string;
     timestamp: number;
   }> = [];
 
+  constructor() {
+    this.store = new Store();
+  }
+
   async initialize(config: AIConfig): Promise<AIResponse> {
     try {
       this.provider = config.provider;
-
+      let response: AIResponse;
       switch (config.provider) {
         case "gemini":
-          return await this.initializeGemini(config);
+          response = await this.initializeGemini(config);
+          break;
         case "openai":
-          return await this.initializeOpenAI(config);
+          response = await this.initializeOpenAI(config);
+          break;
         case "claude":
-          return await this.initializeClaude(config);
+          response = await this.initializeClaude(config);
+          break;
         default:
           return { success: false, error: "Unsupported AI provider" };
       }
+
+      if (response.success && config.apiKey) {
+        this.store.set("aiConfig", {
+          provider: config.provider,
+          apiKey: config.apiKey,
+        });
+      }
+      return response;
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
   }
 
+  getStoredConfig(): Partial<AIConfig> {
+    return this.store.get("aiConfig", {}) as Partial<AIConfig>;
+  }
+
   private async initializeGemini(config: AIConfig): Promise<AIResponse> {
     try {
-      this.client = new GoogleGenAI({
-        vertexai: false,
-        apiKey: config.apiKey,
+      this.client = new GoogleGenAI({ apiKey: config.apiKey });
+      const model = this.client.getGenerativeModel({
+        model: "gemini-1.5-flash-preview",
       });
-
-      // Initialize Gemini Live session for real-time interaction
-      this.session = await this.client.live.connect({
-        model: config.model || "gemini-live-2.5-flash-preview",
-        callbacks: {
-          onopen: () => {
-            console.log("Gemini Live session connected");
-          },
-          onmessage: (message: any) => {
-            this.handleGeminiMessage(message);
-          },
-          onerror: (error: any) => {
-            console.error("Gemini error:", error);
-          },
-          onclose: (reason: any) => {
-            console.log("Gemini session closed:", reason);
-          },
-        },
-        config: {
-          responseModalities: ["TEXT"],
-          inputAudioTranscription: {},
-          contextWindowCompression: { slidingWindow: {} },
-          speechConfig: { languageCode: config.language || "en-US" },
-          systemInstruction: {
-            parts: [{ text: config.customPrompt || this.getDefaultPrompt() }],
-          },
-        },
-      });
-
-      return { success: true, text: "Gemini initialized successfully" };
+      this.session = model.startChat();
+      return { success: true };
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
@@ -88,14 +83,8 @@ export class AIService {
 
   private async initializeOpenAI(config: AIConfig): Promise<AIResponse> {
     try {
-      this.client = new OpenAI({
-        apiKey: config.apiKey,
-      });
-
-      // Test the connection
-      await this.client.models.list();
-
-      return { success: true, text: "OpenAI initialized successfully" };
+      this.client = new OpenAI({ apiKey: config.apiKey });
+      return { success: true };
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
@@ -103,11 +92,8 @@ export class AIService {
 
   private async initializeClaude(config: AIConfig): Promise<AIResponse> {
     try {
-      this.client = new Anthropic({
-        apiKey: config.apiKey,
-      });
-
-      return { success: true, text: "Claude initialized successfully" };
+      this.client = new Anthropic({ apiKey: config.apiKey });
+      return { success: true };
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
@@ -119,18 +105,25 @@ export class AIService {
     }
 
     try {
+      let response: AIResponse;
       switch (this.provider) {
         case "gemini":
-          return await this.sendGeminiMessage(text);
+          response = await this.sendGeminiMessage(text);
+          break;
         case "openai":
-          return await this.sendOpenAIMessage(text);
+          response = await this.sendOpenAIMessage(text);
+          break;
         case "claude":
-          return await this.sendClaudeMessage(text);
+          response = await this.sendClaudeMessage(text);
+          break;
         default:
           return { success: false, error: "Unsupported provider" };
       }
+
+      return response;
     } catch (error) {
-      return { success: false, error: (error as Error).message };
+      const errResponse = { success: false, error: (error as Error).message };
+      return errResponse;
     }
   }
 
@@ -236,8 +229,11 @@ export class AIService {
   private async sendGeminiMessage(text: string): Promise<AIResponse> {
     try {
       if (this.session) {
-        await this.session.sendRealtimeInput({ text: text.trim() });
-        return { success: true };
+        const result = await this.session.sendMessage(text.trim());
+        const response = await result.response;
+        const aiResponse = response.text();
+        this.addToHistory(text, aiResponse);
+        return { success: true, text: aiResponse };
       }
       return { success: false, error: "Gemini session not active" };
     } catch (error) {

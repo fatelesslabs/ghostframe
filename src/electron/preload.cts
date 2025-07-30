@@ -8,6 +8,7 @@ export interface GhostframeAPI {
     sendMessage: (message: string) => Promise<any>;
     sendAudio: (audioData: string) => Promise<any>;
     sendScreenshot: (imageData: string) => Promise<any>;
+    getStoredConfig: () => Promise<any>;
   };
 
   // Browser Automation
@@ -57,6 +58,7 @@ const ghostframeAPI: GhostframeAPI = {
     sendAudio: (audioData) => ipcRenderer.invoke("ai:sendAudio", audioData),
     sendScreenshot: (imageData) =>
       ipcRenderer.invoke("ai:sendScreenshot", imageData),
+    getStoredConfig: () => ipcRenderer.invoke("ai:getStoredConfig"),
   },
 
   automation: {
@@ -101,15 +103,16 @@ const ghostframeAPI: GhostframeAPI = {
       "screenshot-data",
       "automation-progress",
       "status-update",
+      "log-message",
     ];
 
     if (validChannels.includes(channel)) {
-      ipcRenderer.on(channel, callback);
+      ipcRenderer.on(channel, (_event: any, ...args: any) => callback(...args));
     }
   },
 
   off: (channel, callback) => {
-    ipcRenderer.removeListener(channel, callback);
+    ipcRenderer.removeListener(channel, callback as any);
   },
 
   send: (channel, ...args) => {
@@ -165,5 +168,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// Export types for TypeScript
-export type GhostframeAPIType = typeof ghostframeAPI;
+// Log any errors that occur during preload
+process.on("uncaughtException", (error) => {
+  console.error("Preload script error:", error);
+});

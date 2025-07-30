@@ -1,9 +1,9 @@
-const { BrowserWindow, globalShortcut, screen, app } = require("electron");
-const path = require("path");
-
-import { ProcessRandomizer } from "./ProcessRandomizer";
-import { AIService } from "../ai/AIService";
-import { BrowserAutomationService } from "../automation/BrowserAutomationService";
+// Migrated StealthWindowManager for new Electron/React setup
+import { BrowserWindow, globalShortcut, screen, app } from "electron";
+import * as path from "path";
+import { ProcessRandomizer } from "./ProcessRandomizer.js";
+import { AIService } from "./AIService.js";
+import { BrowserAutomationService } from "./BrowserAutomationService.js";
 
 export class StealthWindowManager {
   private mouseEventsIgnored = false;
@@ -12,41 +12,30 @@ export class StealthWindowManager {
 
   constructor(private processRandomizer: ProcessRandomizer) {}
 
-  async createStealthWindow(): Promise<any> {
+  async createStealthWindow(
+    isDev: boolean,
+    preloadPath: string
+  ): Promise<BrowserWindow> {
     const window = new BrowserWindow({
-      width: 600,
-      height: 800,
-      frame: true, // Show frame for maximum visibility
-      transparent: false,
-      alwaysOnTop: false, // Don't force always on top
-      skipTaskbar: false,
-      resizable: true,
+      width: 800,
+      height: 600,
+      transparent: true,
+      frame: false,
+      alwaysOnTop: true,
+      skipTaskbar: true,
       webPreferences: {
-        nodeIntegration: false,
+        preload: preloadPath,
         contextIsolation: true,
-        preload: path.join(__dirname, "../preload/preload.js"),
+        nodeIntegration: false,
       },
-      show: true, // Force show
-      backgroundColor: "#1a1a1a", // Solid background
     });
 
-    // Position in center of screen for maximum visibility
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const { width: screenWidth, height: screenHeight } =
-      primaryDisplay.workAreaSize;
-    const x = Math.floor((screenWidth - 600) / 2);
-    const y = Math.floor((screenHeight - 800) / 2);
-    window.setPosition(x, y);
-
-    // Load the renderer
-    window.loadFile(path.join(__dirname, "../../renderer/index.html"));
-
-    // Set clear window title
-    window.setTitle("Ghostframe - AI Assistant");
-
-    // Force the window to show and focus
-    window.show();
-    window.focus();
+    if (isDev) {
+      window.loadURL("http://localhost:5123");
+      window.webContents.openDevTools({ mode: "detach" });
+    } else {
+      window.loadFile(path.join(app.getAppPath(), "dist-react/index.html"));
+    }
 
     // Set up the toggle hotkey
     this.setupDefaultHotkeys(window);
@@ -58,40 +47,25 @@ export class StealthWindowManager {
 
   applyStealthMeasures(window: any): void {
     console.log("Applying stealth measures...");
-
-    // Make transparent and hide from taskbar for stealth mode
     window.setOpacity(0.3);
     window.setSkipTaskbar(true);
-
-    // Platform-specific stealth
     if (process.platform === "darwin") {
-      // Hide from Mission Control on macOS
       // @ts-ignore
       window.setHiddenInMissionControl(true);
     }
-
-    // Enable content protection when in stealth mode
     window.setContentProtection(true);
-
     console.log("Stealth measures applied");
   }
 
   removeStealthMeasures(window: any): void {
     console.log("Removing stealth measures...");
-
-    // Make fully visible and show in taskbar
     window.setOpacity(0.95);
     window.setSkipTaskbar(false);
-
-    // Platform-specific visibility restoration
     if (process.platform === "darwin") {
       // @ts-ignore
       window.setHiddenInMissionControl(false);
     }
-
-    // Disable content protection for normal mode
     window.setContentProtection(false);
-
     console.log("Stealth measures removed");
   }
 
@@ -116,8 +90,6 @@ export class StealthWindowManager {
       "System Tools",
       "Hardware Monitor",
     ];
-
-    // Change title every 30-60 seconds
     this.titleRandomizationInterval = setInterval(() => {
       try {
         if (!window.isDestroyed()) {
@@ -143,18 +115,14 @@ export class StealthWindowManager {
   async toggleVisibility(window: any): Promise<{ success: boolean }> {
     try {
       if (window.isVisible()) {
-        console.log("Hiding window and applying stealth");
         window.hide();
         this.applyStealthMeasures(window);
       } else {
-        console.log("Showing window and removing stealth");
         this.removeStealthMeasures(window);
         window.showInactive();
       }
-
       return { success: true };
     } catch (error) {
-      console.error("Error toggling visibility:", error);
       return { success: false };
     }
   }
@@ -162,16 +130,12 @@ export class StealthWindowManager {
   async toggleClickThrough(window: any): Promise<{ success: boolean }> {
     try {
       this.mouseEventsIgnored = !this.mouseEventsIgnored;
-
       if (this.mouseEventsIgnored) {
         window.setIgnoreMouseEvents(true, { forward: true });
       } else {
         window.setIgnoreMouseEvents(false);
       }
-
-      // Notify renderer about click-through state
       window.webContents.send("click-through-toggled", this.mouseEventsIgnored);
-
       return { success: true };
     } catch (error) {
       return { success: false };
@@ -185,13 +149,8 @@ export class StealthWindowManager {
     try {
       this.currentMode = mode;
       const { width, height } = this.getWindowDimensions(mode);
-
-      // Animate window resize
       await this.animateResize(window, width, height);
-
-      // Notify renderer about mode change
       window.webContents.send("mode-changed", mode);
-
       return { success: true };
     } catch (error) {
       return { success: false };
@@ -204,17 +163,11 @@ export class StealthWindowManager {
     aiService: AIService,
     browserService: BrowserAutomationService
   ): void {
-    // Unregister all existing shortcuts
     globalShortcut.unregisterAll();
-
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.workAreaSize;
     const moveIncrement = Math.floor(Math.min(width, height) * 0.05);
-
-    // Window movement shortcuts
     this.registerMovementShortcuts(keybinds, window, moveIncrement);
-
-    // Functionality shortcuts
     this.registerFunctionalityShortcuts(
       keybinds,
       window,
@@ -234,13 +187,11 @@ export class StealthWindowManager {
       moveLeft: () => this.moveWindow(window, -increment, 0),
       moveRight: () => this.moveWindow(window, increment, 0),
     };
-
     Object.entries(movements).forEach(([action, handler]) => {
       const keybind = keybinds[action];
       if (keybind) {
         try {
           globalShortcut.register(keybind, handler);
-          console.log(`Registered ${action}: ${keybind}`);
         } catch (error) {
           console.error(`Failed to register ${action}: ${error}`);
         }
@@ -254,35 +205,26 @@ export class StealthWindowManager {
     aiService: AIService,
     browserService: BrowserAutomationService
   ): void {
-    // Toggle visibility
     if (keybinds.toggleVisibility) {
       globalShortcut.register(keybinds.toggleVisibility, () => {
         this.toggleVisibility(window);
       });
     }
-
-    // Toggle click-through
     if (keybinds.toggleClickThrough) {
       globalShortcut.register(keybinds.toggleClickThrough, () => {
         this.toggleClickThrough(window);
       });
     }
-
-    // Answer/assist trigger
     if (keybinds.answerTrigger) {
       globalShortcut.register(keybinds.answerTrigger, () => {
         window.webContents.send("trigger-answer");
       });
     }
-
-    // Automation trigger
     if (keybinds.automationTrigger) {
       globalShortcut.register(keybinds.automationTrigger, () => {
         window.webContents.send("trigger-automation");
       });
     }
-
-    // Mode toggle
     if (keybinds.modeToggle) {
       globalShortcut.register(keybinds.modeToggle, () => {
         const newMode =
@@ -294,7 +236,6 @@ export class StealthWindowManager {
 
   private moveWindow(window: any, deltaX: number, deltaY: number): void {
     if (!window.isVisible()) return;
-
     const [currentX, currentY] = window.getPosition();
     window.setPosition(currentX + deltaX, currentY + deltaY);
   }
@@ -303,10 +244,8 @@ export class StealthWindowManager {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width: screenWidth } = primaryDisplay.workAreaSize;
     const [windowWidth] = window.getSize();
-
     const x = Math.floor((screenWidth - windowWidth) / 2);
-    const y = 0; // Keep at top of screen
-
+    const y = 0;
     window.setPosition(x, y);
   }
 
@@ -328,39 +267,29 @@ export class StealthWindowManager {
   ): Promise<void> {
     return new Promise((resolve) => {
       const [startWidth, startHeight] = window.getSize();
-
       if (startWidth === targetWidth && startHeight === targetHeight) {
         resolve();
         return;
       }
-
       window.setResizable(true);
-
-      const duration = 300; // 300ms animation
+      const duration = 300;
       const frameRate = 60;
       const totalFrames = Math.floor(duration / (1000 / frameRate));
       let currentFrame = 0;
-
       const widthDiff = targetWidth - startWidth;
       const heightDiff = targetHeight - startHeight;
-
       const interval = setInterval(() => {
         currentFrame++;
         const progress = currentFrame / totalFrames;
-
-        // Easing function (ease-out)
         const easedProgress = 1 - Math.pow(1 - progress, 3);
-
         const currentWidth = Math.round(startWidth + widthDiff * easedProgress);
         const currentHeight = Math.round(
           startHeight + heightDiff * easedProgress
         );
-
         if (!window.isDestroyed()) {
           window.setSize(currentWidth, currentHeight);
           this.centerWindow(window);
         }
-
         if (currentFrame >= totalFrames) {
           clearInterval(interval);
           if (!window.isDestroyed()) {
@@ -375,25 +304,17 @@ export class StealthWindowManager {
   }
 
   private setupDefaultHotkeys(window: any): void {
-    const { globalShortcut } = require("electron");
-
-    // Set up Ctrl+\ as the default toggle hotkey (exactly like Cheating Daddy)
     try {
-      globalShortcut.register("CommandOrControl+\\", () => {
-        console.log("Toggle hotkey pressed");
+      const toggleHandler = () => {
         if (window.isVisible()) {
-          console.log("Hiding window");
           window.hide();
-          // Apply stealth measures when hiding
           this.applyStealthMeasures(window);
         } else {
-          console.log("Showing window");
-          // Remove stealth measures when showing
           this.removeStealthMeasures(window);
-          window.showInactive(); // Use showInactive like Cheating Daddy
+          window.showInactive();
         }
-      });
-      console.log("Default hotkey registered: Ctrl+\\");
+      };
+      globalShortcut.register("CommandOrControl+\\", toggleHandler);
     } catch (error) {
       console.error("Failed to register default hotkey:", error);
     }

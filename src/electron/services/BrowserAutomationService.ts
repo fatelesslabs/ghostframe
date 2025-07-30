@@ -1,3 +1,4 @@
+// Migrated BrowserAutomationService for new Electron/React setup
 import * as puppeteer from "puppeteer-core";
 import * as path from "path";
 import * as fs from "fs";
@@ -272,7 +273,7 @@ export class BrowserAutomationService {
     await this.page.click(selector);
 
     // Wait for potential navigation
-    await this.page.waitForTimeout(2000);
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     return { success: true, data: { message: "Form submitted" } };
   }
@@ -306,7 +307,7 @@ export class BrowserAutomationService {
         timeout: options.timeout || 10000,
       });
     } else if (options.timeout) {
-      await this.page.waitForTimeout(options.timeout);
+      await new Promise(resolve => setTimeout(resolve, options.timeout));
     } else {
       await this.humanDelay(1000, 3000);
     }
@@ -385,11 +386,6 @@ export class BrowserAutomationService {
 
     // Override webdriver detection
     await this.page.evaluateOnNewDocument(() => {
-      // Remove webdriver property
-      Object.defineProperty(navigator, "webdriver", {
-        get: () => undefined,
-      });
-
       // Mock chrome runtime
       (window as any).chrome = {
         runtime: {},

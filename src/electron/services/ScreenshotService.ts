@@ -1,3 +1,4 @@
+// Migrated ScreenshotService for new Electron/React setup
 import { screen, desktopCapturer, nativeImage } from "electron";
 import * as fs from "fs";
 import * as path from "path";

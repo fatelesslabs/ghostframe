@@ -1,8 +1,4 @@
-/**
- * ProcessRandomizer - Generates random legitimate-sounding process names for stealth
- * Adapted from Cheating Daddy implementation
- */
-
+// Migrated ProcessRandomizer for new Electron/React setup as ES module
 const PREFIXES = [
   "System",
   "Desktop",
@@ -36,7 +32,6 @@ const PREFIXES = [
   "Connection",
   "Stream",
 ];
-
 const SUFFIXES = [
   "Manager",
   "Service",
@@ -68,7 +63,6 @@ const SUFFIXES = [
   "Scanner",
   "Analyzer",
 ];
-
 const EXTENSIONS = [
   "",
   "Pro",
@@ -87,7 +81,6 @@ const EXTENSIONS = [
   "X",
   "HD",
 ];
-
 const COMPANIES = [
   "Microsoft",
   "Apple",
@@ -106,7 +99,6 @@ const COMPANIES = [
   "Realtek",
   "Qualcomm",
 ];
-
 const WINDOW_TITLES = [
   "System Configuration",
   "Audio Settings",
