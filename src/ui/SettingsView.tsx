@@ -1,5 +1,4 @@
-//(new) SettingsView.tsx
-import React from "react";
+import React, { useEffect } from "react";
 import { Save } from "lucide-react";
 
 export interface AppSettings {
@@ -16,10 +15,20 @@ interface SettingsViewProps {
 }
 
 export const SettingsView = ({ settings, setSettings }: SettingsViewProps) => {
+  useEffect(() => {
+    const fetchSettings = async () => {
+      // Settings loading is handled in the parent component
+      // const storedSettings = await window.ghostframe.settings.get();
+      // if (storedSettings) {
+      //   setSettings(storedSettings);
+      // }
+    };
+
+    fetchSettings();
+  }, [setSettings]);
+
   const handleSave = async () => {
-    // Call the main process to save settings
     await window.ghostframe.settings?.save(settings);
-    // ALSO initialize the AI service with the new settings
     await window.ghostframe.ai?.initialize?.({
       provider: settings.provider,
       apiKey: settings.apiKey,
@@ -38,13 +47,11 @@ export const SettingsView = ({ settings, setSettings }: SettingsViewProps) => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      {/* AI Configuration */}
       <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
         <h3 className="text-lg font-medium text-white/90 mb-4">
           🧠 AI Configuration
         </h3>
         <div className="space-y-4">
-          {/* Provider */}
           <div className="grid grid-cols-3 items-center">
             <label htmlFor="provider" className="text-sm text-white/70">
               Provider
@@ -61,7 +68,6 @@ export const SettingsView = ({ settings, setSettings }: SettingsViewProps) => {
               <option value="claude">Anthropic Claude</option>
             </select>
           </div>
-          {/* API Key */}
           <div className="grid grid-cols-3 items-center">
             <label htmlFor="apiKey" className="text-sm text-white/70">
               API Key
@@ -76,7 +82,6 @@ export const SettingsView = ({ settings, setSettings }: SettingsViewProps) => {
               className="input-field col-span-2"
             />
           </div>
-          {/* Custom Instructions */}
           <div className="grid grid-cols-3 items-start">
             <label
               htmlFor="customInstructions"
@@ -97,13 +102,11 @@ export const SettingsView = ({ settings, setSettings }: SettingsViewProps) => {
         </div>
       </div>
 
-      {/* Capture & Automation Configuration */}
       <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
         <h3 className="text-lg font-medium text-white/90 mb-4">
           ⚙️ Capture & Automation Config
         </h3>
         <div className="space-y-4">
-          {/* Screenshot Interval */}
           <div className="grid grid-cols-3 items-center">
             <label
               htmlFor="screenshotInterval"
@@ -121,24 +124,7 @@ export const SettingsView = ({ settings, setSettings }: SettingsViewProps) => {
               step="500"
               className="input-field col-span-2"
             />
-            <div className="col-span-3 flex space-x-2 mt-2">
-              <button
-                // onClick={() => window.ghostframe.capture.startPeriodicScreenshots(settings.screenshotInterval)}
-                // Feature not implemented
-                className="btn-secondary flex-1"
-              >
-                Start Auto Screenshots
-              </button>
-              <button
-                // onClick={() => window.ghostframe.capture.stopPeriodicScreenshots()}
-                // Feature not implemented
-                className="btn-secondary flex-1"
-              >
-                Stop Auto Screenshots
-              </button>
-            </div>
           </div>
-          {/* Browser Profile */}
           <div className="grid grid-cols-3 items-center">
             <label htmlFor="profileType" className="text-sm text-white/70">
               Browser Profile
@@ -157,7 +143,6 @@ export const SettingsView = ({ settings, setSettings }: SettingsViewProps) => {
         </div>
       </div>
 
-      {/* Save Button */}
       <div className="flex justify-end">
         <button
           onClick={handleSave}

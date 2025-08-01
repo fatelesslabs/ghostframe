@@ -9,6 +9,7 @@ export class StealthWindowManager {
   private mouseEventsIgnored = false;
   private currentMode: "overlay" | "automation" = "overlay";
   private titleRandomizationInterval?: ReturnType<typeof setInterval>;
+  private contentProtectionEnabled = false;
 
   constructor(private processRandomizer: ProcessRandomizer) {}
 
@@ -65,8 +66,141 @@ export class StealthWindowManager {
       // @ts-ignore
       window.setHiddenInMissionControl(false);
     }
-    window.setContentProtection(false);
+    // Don't disable content protection when removing general stealth measures
+    // It's controlled separately by toggleContentProtection
     console.log("Stealth measures removed");
+  }
+
+  /**
+   * Enable content protection to prevent screenshots and video recording
+   */
+  enableContentProtection(window: any): void {
+    try {
+      window.setContentProtection(true);
+      this.contentProtectionEnabled = true;
+      console.log(
+        "Content protection enabled - screenshots and video recording blocked"
+      );
+
+      // Additional stealth measures inspired by stealthFeatures.js
+      if (process.platform === "win32") {
+        try {
+          window.setSkipTaskbar(true);
+          console.log("Hidden from Windows taskbar for content protection");
+        } catch (error) {
+          console.warn(
+            "Could not hide from taskbar:",
+            (error as Error).message
+          );
+        }
+      }
+
+      if (process.platform === "darwin") {
+        try {
+          // @ts-ignore
+          window.setHiddenInMissionControl(true);
+          console.log(
+            "Hidden from macOS Mission Control for content protection"
+          );
+        } catch (error) {
+          console.warn(
+            "Could not hide from Mission Control:",
+            (error as Error).message
+          );
+        }
+      }
+
+      // Randomize window user agent for additional stealth
+      try {
+        const userAgents = [
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        ];
+        const randomUA =
+          userAgents[Math.floor(Math.random() * userAgents.length)];
+        window.webContents.setUserAgent(randomUA);
+        console.log("Set random user agent for stealth");
+      } catch (error) {
+        console.warn("Could not set user agent:", (error as Error).message);
+      }
+    } catch (error) {
+      console.error("Failed to enable content protection:", error);
+    }
+  }
+
+  /**
+   * Disable content protection to allow screenshots and video recording
+   */
+  disableContentProtection(window: any): void {
+    try {
+      window.setContentProtection(false);
+      this.contentProtectionEnabled = false;
+      console.log(
+        "Content protection disabled - screenshots and video recording allowed"
+      );
+
+      // Remove additional stealth measures
+      if (process.platform === "win32") {
+        try {
+          window.setSkipTaskbar(false);
+          console.log("Restored to Windows taskbar");
+        } catch (error) {
+          console.warn(
+            "Could not restore to taskbar:",
+            (error as Error).message
+          );
+        }
+      }
+
+      if (process.platform === "darwin") {
+        try {
+          // @ts-ignore
+          window.setHiddenInMissionControl(false);
+          console.log("Restored to macOS Mission Control");
+        } catch (error) {
+          console.warn(
+            "Could not restore to Mission Control:",
+            (error as Error).message
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Failed to disable content protection:", error);
+    }
+  }
+
+  /**
+   * Toggle content protection on/off
+   */
+  async toggleContentProtection(
+    window: any
+  ): Promise<{ success: boolean; enabled: boolean }> {
+    try {
+      if (this.contentProtectionEnabled) {
+        this.disableContentProtection(window);
+      } else {
+        this.enableContentProtection(window);
+      }
+
+      // Notify the renderer process of the change
+      window.webContents.send(
+        "content-protection-toggled",
+        this.contentProtectionEnabled
+      );
+
+      return { success: true, enabled: this.contentProtectionEnabled };
+    } catch (error) {
+      console.error("Failed to toggle content protection:", error);
+      return { success: false, enabled: this.contentProtectionEnabled };
+    }
+  }
+
+  /**
+   * Get current content protection status
+   */
+  isContentProtectionEnabled(): boolean {
+    return this.contentProtectionEnabled;
   }
 
   startTitleRandomization(window: any): void {

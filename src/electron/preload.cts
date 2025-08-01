@@ -22,6 +22,7 @@ export interface GhostframeAPI {
   capture: {
     startAudio: () => Promise<any>;
     stopAudio: () => Promise<any>;
+    enableTranscription: (enabled: boolean) => Promise<any>;
     takeScreenshot: (options?: any) => Promise<any>;
     startPeriodicScreenshots: (interval: number) => Promise<any>;
     stopPeriodicScreenshots: () => Promise<any>;
@@ -31,6 +32,11 @@ export interface GhostframeAPI {
   window: {
     toggleVisibility: () => Promise<any>;
     toggleClickThrough: () => Promise<any>;
+    toggleContentProtection: () => Promise<any>;
+    getContentProtectionStatus: () => Promise<any>;
+    move: (deltaX: number, deltaY: number) => Promise<any>;
+    setPosition: (x: number, y: number) => Promise<any>;
+    getPosition: () => Promise<any>;
     setMode: (mode: "overlay" | "automation") => Promise<any>;
   };
 
@@ -38,6 +44,12 @@ export interface GhostframeAPI {
   system: {
     openExternal: (url: string) => Promise<any>;
     quit: () => Promise<any>;
+  };
+
+  // Settings
+  settings: {
+    save: (settings: any) => Promise<void>;
+    get: () => Promise<any>;
   };
 
   // Events
@@ -51,6 +63,8 @@ export interface GhostframeAPI {
 }
 
 // Create the API object
+const listenerMap = new Map<string, Map<Function, Function>>(); // channel -> (callback -> wrapper)
+
 const ghostframeAPI: GhostframeAPI = {
   ai: {
     initialize: (config) => ipcRenderer.invoke("ai:initialize", config),
@@ -72,6 +86,8 @@ const ghostframeAPI: GhostframeAPI = {
   capture: {
     startAudio: () => ipcRenderer.invoke("capture:startAudio"),
     stopAudio: () => ipcRenderer.invoke("capture:stopAudio"),
+    enableTranscription: (enabled: boolean) =>
+      ipcRenderer.invoke("capture:enableTranscription", enabled),
     takeScreenshot: (options) =>
       ipcRenderer.invoke("capture:takeScreenshot", options),
     startPeriodicScreenshots: (interval) =>
@@ -83,6 +99,13 @@ const ghostframeAPI: GhostframeAPI = {
   window: {
     toggleVisibility: () => ipcRenderer.invoke("window:toggleVisibility"),
     toggleClickThrough: () => ipcRenderer.invoke("window:toggleClickThrough"),
+    toggleContentProtection: () =>
+      ipcRenderer.invoke("window:toggleContentProtection"),
+    getContentProtectionStatus: () =>
+      ipcRenderer.invoke("window:getContentProtectionStatus"),
+    move: (deltaX, deltaY) => ipcRenderer.invoke("window:move", deltaX, deltaY),
+    setPosition: (x, y) => ipcRenderer.invoke("window:setPosition", x, y),
+    getPosition: () => ipcRenderer.invoke("window:getPosition"),
     setMode: (mode) => ipcRenderer.invoke("window:setMode", mode),
   },
 
@@ -91,11 +114,19 @@ const ghostframeAPI: GhostframeAPI = {
     quit: () => ipcRenderer.invoke("system:quit"),
   },
 
+  settings: {
+    save: (settings) => ipcRenderer.invoke("settings:save", settings),
+    get: () => ipcRenderer.invoke("settings:get"),
+  },
+
   on: (channel, callback) => {
     // Validate allowed channels for security
     const validChannels = [
       "ai-response",
+      "ai-status",
       "click-through-toggled",
+      "content-protection-toggled",
+      "transcription-update",
       "mode-changed",
       "trigger-answer",
       "trigger-automation",
@@ -107,12 +138,50 @@ const ghostframeAPI: GhostframeAPI = {
     ];
 
     if (validChannels.includes(channel)) {
-      ipcRenderer.on(channel, (_event: any, ...args: any) => callback(...args));
+      console.log(`Registering listener for channel: ${channel}`);
+
+      // Create wrapper function
+      const wrapper = (event: any, ...args: any[]) => {
+        console.log(`Preload received ${channel} with args:`, args);
+        // Pass the event object as first parameter, then the data
+        if (args.length === 1) {
+          console.log(
+            `Passing event and single arg to callback:`,
+            event,
+            args[0]
+          );
+          callback(event, args[0]);
+        } else {
+          console.log(
+            `Passing event and multiple args to callback:`,
+            event,
+            args
+          );
+          callback(event, ...args);
+        }
+      };
+
+      // Store the wrapper for later removal
+      if (!listenerMap.has(channel)) {
+        listenerMap.set(channel, new Map());
+      }
+      listenerMap.get(channel)!.set(callback, wrapper);
+
+      ipcRenderer.on(channel, wrapper);
     }
   },
 
   off: (channel, callback) => {
-    ipcRenderer.removeListener(channel, callback as any);
+    console.log(`Removing listener for channel: ${channel}`);
+    const channelMap = listenerMap.get(channel);
+    if (channelMap && channelMap.has(callback)) {
+      const wrapper = channelMap.get(callback)!;
+      ipcRenderer.removeListener(channel, wrapper);
+      channelMap.delete(callback);
+      console.log(`Successfully removed listener for channel: ${channel}`);
+    } else {
+      console.warn(`No listener found for channel: ${channel}`);
+    }
   },
 
   send: (channel, ...args) => {
@@ -139,9 +208,12 @@ delete (global as any).Buffer;
 
 // Override navigator.webdriver for stealth
 try {
-  Object.defineProperty(navigator, "webdriver", {
-    get: () => undefined,
-  });
+  if (!Object.getOwnPropertyDescriptor(navigator, "webdriver")) {
+    Object.defineProperty(navigator, "webdriver", {
+      get: () => undefined,
+      configurable: true,
+    });
+  }
 } catch (e) {
   // Ignore if already defined
 }
@@ -162,10 +234,17 @@ window.addEventListener("DOMContentLoaded", () => {
   delete (window as any).exports;
   delete (window as any).module;
 
-  // Add a custom user agent to help with stealth
-  Object.defineProperty(navigator, "webdriver", {
-    get: () => undefined,
-  });
+  // Add a custom user agent to help with stealth (skip if already defined)
+  try {
+    if (!Object.getOwnPropertyDescriptor(navigator, "webdriver")) {
+      Object.defineProperty(navigator, "webdriver", {
+        get: () => undefined,
+        configurable: true,
+      });
+    }
+  } catch (e) {
+    // Ignore if already defined
+  }
 });
 
 // Log any errors that occur during preload

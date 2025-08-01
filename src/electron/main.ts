@@ -17,6 +17,7 @@ import { ScreenshotService } from "./services/ScreenshotService.js";
 import { ProcessRandomizer } from "./services/ProcessRandomizer.js";
 import { StealthWindowManager } from "./services/StealthWindowManager.js";
 import { AntiAnalysisService } from "./services/AntiAnalysisService.js";
+import { SettingsService } from "./services/SettingsService.js";
 import Store from "electron-store";
 
 const store = new Store();
@@ -35,6 +36,7 @@ const audioCaptureService = new AudioCaptureService();
 const screenshotService = new ScreenshotService();
 const stealthWindowManager = new StealthWindowManager(processRandomizer);
 const antiAnalysisService = new AntiAnalysisService();
+const settingsService = new SettingsService();
 
 async function createWindow() {
   await antiAnalysisService.applyAntiAnalysisMeasures();
@@ -54,10 +56,28 @@ async function createWindow() {
 
 app.on("ready", () => {
   createWindow();
+  settingsService.initialize();
 
   // Register global shortcuts
   globalShortcut.register("CommandOrControl+Shift+C", () => {
     toggleClickThrough();
+  });
+
+  // Window movement shortcuts
+  globalShortcut.register("CommandOrControl+Up", () => {
+    moveWindow(0, -20);
+  });
+
+  globalShortcut.register("CommandOrControl+Down", () => {
+    moveWindow(0, 20);
+  });
+
+  globalShortcut.register("CommandOrControl+Left", () => {
+    moveWindow(-20, 0);
+  });
+
+  globalShortcut.register("CommandOrControl+Right", () => {
+    moveWindow(20, 0);
   });
 });
 
@@ -88,6 +108,14 @@ const toggleClickThrough = () => {
   mainWindow?.webContents.send("click-through-toggled", isClickThrough);
 };
 
+// Helper function to move window
+const moveWindow = (deltaX: number, deltaY: number) => {
+  if (mainWindow) {
+    const [currentX, currentY] = mainWindow.getPosition();
+    mainWindow.setPosition(currentX + deltaX, currentY + deltaY);
+  }
+};
+
 // Window Management
 ipcMain.handle("window:toggleVisibility", () => {
   if (mainWindow) {
@@ -95,6 +123,20 @@ ipcMain.handle("window:toggleVisibility", () => {
   }
 });
 ipcMain.handle("window:toggleClickThrough", toggleClickThrough);
+ipcMain.handle("window:move", (_event, deltaX: number, deltaY: number) => {
+  moveWindow(deltaX, deltaY);
+});
+ipcMain.handle("window:setPosition", (_event, x: number, y: number) => {
+  if (mainWindow) {
+    mainWindow.setPosition(x, y);
+  }
+});
+ipcMain.handle("window:getPosition", () => {
+  if (mainWindow) {
+    return mainWindow.getPosition();
+  }
+  return [0, 0];
+});
 ipcMain.handle("system:quit", () => app.quit());
 
 // AI Service
@@ -109,10 +151,11 @@ ipcMain.handle("ai:initialize", async (_event, config) => {
   return result;
 });
 
-ipcMain.handle("ai:sendMessage", async (_event, { message }) => {
-  const result = await aiService.sendMessage(message);
-  mainWindow?.webContents.send("ai-response", result);
-  return result;
+ipcMain.handle("ai:sendMessage", async (_event, message) => {
+  // The AI service's onmessage callback will send the actual response to the renderer
+  // via the 'ai-response' channel. Here, we just invoke the send method and
+  // return its initial status.
+  return await aiService.sendMessage(message);
 });
 
 ipcMain.handle("ai:getStoredConfig", () => {
@@ -138,11 +181,26 @@ ipcMain.handle("capture:startAudio", async () => {
   );
   return result;
 });
+
 ipcMain.handle("capture:stopAudio", async () => {
   const result = await audioCaptureService.stopCapture();
   mainWindow?.webContents.send("log-message", "Audio capture stopped.");
   return result;
 });
+
+ipcMain.handle(
+  "capture:enableTranscription",
+  async (_event, enabled: boolean) => {
+    audioCaptureService.enableTranscription(enabled);
+    if (enabled) {
+      // Set up transcription callback to send to renderer
+      audioCaptureService.setTranscriptionCallback((text: string) => {
+        mainWindow?.webContents.send("transcription-update", text);
+      });
+    }
+    return { success: true };
+  }
+);
 ipcMain.handle("capture:takeScreenshot", async () => {
   const result = await screenshotService.takeScreenshot();
   if (result.success && result.data) {
@@ -189,6 +247,7 @@ ipcMain.handle("automation:executeAction", async (_event, action) => {
   );
   return result;
 });
+
 // Stealth/Process Randomizer/Window Mode
 ipcMain.handle("window:setMode", async (_event, mode) => {
   if (mainWindow) {
@@ -197,9 +256,13 @@ ipcMain.handle("window:setMode", async (_event, mode) => {
   return { success: false, error: "Main window not found" };
 });
 
-ipcMain.handle("settings:save", (_event, settings) => {
-  console.log("Saving settings:", settings);
-  // Here you would save the settings to a file, e.g., using electron-store
-  mainWindow?.webContents.send("log-message", "Settings saved successfully!");
-  return { success: true };
+ipcMain.handle("window:toggleContentProtection", async () => {
+  if (mainWindow) {
+    return await stealthWindowManager.toggleContentProtection(mainWindow);
+  }
+  return { success: false, enabled: false, error: "Main window not found" };
+});
+
+ipcMain.handle("window:getContentProtectionStatus", async () => {
+  return { enabled: stealthWindowManager.isContentProtectionEnabled() };
 });

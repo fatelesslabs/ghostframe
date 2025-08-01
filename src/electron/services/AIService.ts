@@ -36,6 +36,7 @@ export class AIService {
 
   async initialize(config: AIConfig): Promise<AIResponse> {
     try {
+      console.log("Initializing AI with config:", config);
       this.provider = config.provider;
       let response: AIResponse;
       switch (config.provider) {
@@ -58,8 +59,10 @@ export class AIService {
           apiKey: config.apiKey,
         });
       }
+      console.log("AI initialization result:", response);
       return response;
     } catch (error) {
+      console.error("Error during AI initialization:", error);
       return { success: false, error: (error as Error).message };
     }
   }
@@ -70,13 +73,102 @@ export class AIService {
 
   private async initializeGemini(config: AIConfig): Promise<AIResponse> {
     try {
+      console.log("Initializing Gemini Live session...");
+
+      // Clean up existing session if any
+      if (this.session) {
+        console.log(
+          "Cleaning up existing Gemini session before creating new one"
+        );
+        try {
+          await this.session.close();
+        } catch (error) {
+          console.warn("Error closing existing session:", error);
+        }
+        this.session = null;
+      }
+
       this.client = new GoogleGenAI({ apiKey: config.apiKey });
-      const model = this.client.getGenerativeModel({
-        model: "gemini-1.5-flash-preview",
+
+      this.session = await this.client.live.connect({
+        model: "gemini-live-2.5-flash-preview",
+        callbacks: {
+          onopen: () => {
+            console.log("Gemini Live session opened successfully.");
+            const windows = BrowserWindow.getAllWindows();
+            if (windows.length > 0) {
+              console.log("Sending ai-status connected to renderer");
+              windows[0].webContents.send("ai-status", { status: "connected" });
+            } else {
+              console.log("No windows found to send ai-status");
+            }
+          },
+          onmessage: (message: any) => {
+            console.log(
+              "Gemini onmessage callback triggered:",
+              JSON.stringify(message, null, 2)
+            );
+            const windows = BrowserWindow.getAllWindows();
+            if (message.serverContent?.modelTurn?.parts) {
+              for (const part of message.serverContent.modelTurn.parts) {
+                if (part.text && windows.length > 0) {
+                  console.log("Sending ai-response with text:", part.text);
+                  windows[0].webContents.send("ai-response", {
+                    success: true,
+                    text: part.text,
+                    provider: "gemini",
+                  });
+                }
+              }
+            }
+            // Forward completion flags so renderer can finalize placeholder
+            if (windows.length > 0) {
+              if (message.serverContent?.generationComplete) {
+                console.log("Sending generationComplete flag");
+                windows[0].webContents.send("ai-response", {
+                  serverContent: { generationComplete: true },
+                });
+              }
+              if (message.serverContent?.turnComplete) {
+                console.log("Sending turnComplete flag");
+                windows[0].webContents.send("ai-response", {
+                  serverContent: { turnComplete: true },
+                });
+              }
+            }
+          },
+          onerror: (error: Error) => {
+            console.error("Gemini Live session error:", error);
+            const windows = BrowserWindow.getAllWindows();
+            if (windows.length > 0) {
+              windows[0].webContents.send("ai-response", {
+                success: false,
+                error: error.message,
+              });
+            }
+          },
+          onclose: (reason: any) => {
+            console.log("Gemini Live session closed. Reason:", reason);
+            const windows = BrowserWindow.getAllWindows();
+            if (windows.length > 0) {
+              windows[0].webContents.send("ai-status", { status: "closed" });
+            }
+          },
+        },
+        config: {
+          responseModalities: ["TEXT"],
+          inputAudioTranscription: {},
+          speechConfig: { languageCode: config.language || "en-US" },
+          systemInstruction: {
+            parts: [{ text: config.customPrompt || this.getDefaultPrompt() }],
+          },
+        },
       });
-      this.session = model.startChat();
+
+      console.log("Gemini Live session initialized successfully.");
       return { success: true };
     } catch (error) {
+      console.error("Error initializing Gemini Live:", error);
       return { success: false, error: (error as Error).message };
     }
   }
@@ -100,7 +192,9 @@ export class AIService {
   }
 
   async sendMessage(text: string): Promise<AIResponse> {
+    console.log(`sendMessage called with text: ${text}`);
     if (!this.client || !this.provider) {
+      console.error("AI service not initialized");
       return { success: false, error: "AI service not initialized" };
     }
 
@@ -227,16 +321,18 @@ export class AIService {
   }
 
   private async sendGeminiMessage(text: string): Promise<AIResponse> {
+    console.log(`sendGeminiMessage called with text: ${text}`);
     try {
       if (this.session) {
-        const result = await this.session.sendMessage(text.trim());
-        const response = await result.response;
-        const aiResponse = response.text();
-        this.addToHistory(text, aiResponse);
-        return { success: true, text: aiResponse };
+        console.log("Sending text to Gemini Live session");
+        await this.session.sendRealtimeInput({ text: text.trim() });
+        this.addToHistory(text, ""); // Response will be handled by the onmessage callback
+        return { success: true };
       }
+      console.error("Gemini session not active");
       return { success: false, error: "Gemini session not active" };
     } catch (error) {
+      console.error("Error in sendGeminiMessage:", error);
       return { success: false, error: (error as Error).message };
     }
   }
@@ -294,26 +390,6 @@ export class AIService {
       return { success: true, text: aiResponse };
     } catch (error) {
       return { success: false, error: (error as Error).message };
-    }
-  }
-
-  private handleGeminiMessage(message: any): void {
-    // Handle incoming Gemini Live messages
-    if (message.serverContent?.modelTurn?.parts) {
-      for (const part of message.serverContent.modelTurn.parts) {
-        if (part.text) {
-          // Send to renderer process
-          const { BrowserWindow } = require("electron");
-          const windows = BrowserWindow.getAllWindows();
-          if (windows.length > 0) {
-            windows[0].webContents.send("ai-response", {
-              success: true,
-              text: part.text,
-              provider: "gemini",
-            });
-          }
-        }
-      }
     }
   }
 

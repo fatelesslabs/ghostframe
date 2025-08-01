@@ -17,11 +17,19 @@ declare global {
       capture: {
         startAudio: () => Promise<{ success: boolean }>;
         stopAudio: () => Promise<{ success: boolean }>;
+        enableTranscription: (
+          enabled: boolean
+        ) => Promise<{ success: boolean }>;
         takeScreenshot?: () => Promise<{ success: boolean; data?: string }>;
       };
       window: {
         toggleVisibility: () => Promise<void>;
         toggleClickThrough: () => Promise<void>;
+        toggleContentProtection: () => Promise<{ enabled: boolean }>;
+        getContentProtectionStatus: () => Promise<{ enabled: boolean }>;
+        move: (deltaX: number, deltaY: number) => Promise<void>;
+        setPosition: (x: number, y: number) => Promise<void>;
+        getPosition: () => Promise<[number, number]>;
         setMode?: (mode: string) => Promise<any>;
       };
       automation: {

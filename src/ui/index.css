@@ -1,27 +1,254 @@
 @import "tailwindcss";
 
-/* Add to your main stylesheet */
-.btn-secondary {
-  @apply bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg px-4 py-2 text-sm text-white/90 flex items-center justify-center transition-colors duration-200;
+
+@layer base {
+  body {
+    @apply bg-transparent;
+    color: #e5e7eb; /* Better default text color - light gray */
+    font-weight: 500; /* Make text slightly bolder by default */
+  }
 }
 
-.input-field {
-  @apply bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg px-3 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-200;
-}
+@layer components {
+  /* Draggable window region - inspired by cheating-daddy */
+  .app-container {
+    -webkit-app-region: drag;
+    cursor: default;
+    user-select: none;
+    color: #d1d5db; /* Gray-300 for better contrast */
+    font-weight: 600; /* Bold text for better readability */
+  }
 
-/* Add to your main stylesheet */
-.btn-mode {
-  @apply px-4 py-2 rounded-lg text-sm flex items-center space-x-2 transition-colors duration-200;
-}
-.btn-mode-inactive {
-  @apply bg-white/10 hover:bg-white/20 text-white/70;
-}
-.btn-mode-active-blue {
-  @apply bg-blue-500/80 text-white shadow-lg;
-}
-.btn-mode-active-purple {
-  @apply bg-purple-500/80 text-white shadow-lg;
-}
-.btn-mode-active-gray {
-  @apply bg-gray-500/80 text-white shadow-lg;
+  /* Interactive elements should not be draggable */
+  button, input, textarea, select, a {
+    -webkit-app-region: no-drag;
+    cursor: pointer;
+  }
+
+  /* Inline drag handle */
+  .drag-handle {
+    -webkit-app-region: drag;
+    cursor: move;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+  }
+
+  .drag-handle:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Specific areas that should allow interaction */
+  .content-area, .assistant-controls, .automation-controls {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Fallback drag handle - for manual dragging if CSS dragging fails */
+  .fallback-drag-handle {
+    @apply select-none cursor-grab;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    -webkit-app-region: no-drag;
+  }
+
+  .fallback-drag-handle:active {
+    @apply cursor-grabbing;
+  }
+
+  .input-field {
+    @apply bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white/90 placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all duration-200;
+    -webkit-app-region: no-drag;
+  }
+
+  .btn-primary {
+    @apply bg-blue-500/80 hover:bg-blue-600/90 text-white font-bold py-2 px-4 rounded-lg transition-all duration-300 shadow-lg backdrop-blur-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed;
+    -webkit-app-region: no-drag;
+  }
+
+  .btn-secondary {
+    @apply bg-white/10 hover:bg-white/20 text-white/80 py-2 px-4 rounded-lg transition-all duration-200 backdrop-blur-sm border border-transparent flex items-center justify-center;
+    -webkit-app-region: no-drag;
+  }
+
+  .btn-icon {
+    @apply text-white/70 hover:text-white transition-all duration-200;
+    -webkit-app-region: no-drag;
+  }
+
+  .btn-mode {
+    @apply px-4 py-2 rounded-lg text-sm flex items-center space-x-2 transition-all duration-200;
+    -webkit-app-region: no-drag;
+  }
+
+  .btn-mode-active-blue {
+    @apply bg-blue-500/30 text-blue-300 backdrop-blur-sm;
+    font-weight: 700; /* Extra bold for active states */
+    color: #93c5fd; /* Blue-300 for better visibility */
+  }
+
+  .btn-mode-active-purple {
+    @apply bg-purple-500/30 text-purple-300 backdrop-blur-sm;
+    font-weight: 700;
+    color: #c4b5fd; /* Purple-300 for better visibility */
+  }
+
+  .btn-mode-inactive {
+    @apply text-white/60 hover:bg-white/10 hover:text-white;
+    font-weight: 600; /* Bold inactive text */
+    color: #9ca3af; /* Gray-400 for better contrast */
+  }
+
+  /* New Cluely-inspired styles */
+  .header-container {
+    @apply space-y-3 mb-4;
+  }
+
+  .status-row {
+    @apply flex items-center justify-between;
+  }
+
+  .status-badge {
+    @apply px-2 py-1 rounded-md text-xs font-medium flex items-center space-x-1.5;
+  }
+
+  .status-protected {
+    @apply bg-red-500/15 text-red-300 border border-red-400/30;
+  }
+
+  .protection-toggle {
+    @apply p-2 rounded-lg transition-all duration-200 border;
+  }
+
+  .protection-active {
+    @apply bg-red-500/20 border-red-400/50 text-red-300 hover:bg-red-500/30;
+  }
+
+  .protection-inactive {
+    @apply bg-white/5 border-white/20 text-white/60 hover:bg-white/10 hover:text-white/80;
+  }
+
+  .settings-btn {
+    @apply p-2 rounded-lg bg-white/5 border border-white/20 text-white/60 hover:bg-white/10 hover:text-white/80 transition-all duration-200;
+  }
+
+  .nav-container {
+    @apply flex items-center justify-between;
+  }
+
+  .mode-selector {
+    @apply flex items-center space-x-1 p-1 bg-white/5 rounded-lg border border-white/10;
+  }
+
+  .mode-btn {
+    @apply px-3 py-2 rounded-md text-sm font-medium flex items-center space-x-2 transition-all duration-200;
+  }
+
+  .mode-active {
+    @apply bg-blue-500/30 text-blue-300;
+  }
+
+  .mode-inactive {
+    @apply text-white/60 hover:bg-white/10 hover:text-white/80;
+  }
+
+  .action-buttons {
+    @apply flex items-center space-x-2;
+  }
+
+  .action-btn {
+    @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 border;
+  }
+
+  .action-btn:not(.action-primary) {
+    @apply bg-white/5 border-white/20 text-white/70 hover:bg-white/10 hover:text-white/90;
+  }
+
+  .action-primary {
+    @apply bg-blue-500/20 border-blue-400/50 text-blue-300 hover:bg-blue-500/30;
+  }
+
+  .content-area {
+    @apply mt-4;
+  }
+
+  .record-button {
+    @apply w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg border-2;
+  }
+
+  .record-active {
+    @apply bg-red-500/20 border-red-400/50 text-red-300 shadow-red-500/25;
+  }
+
+  .record-inactive {
+    @apply bg-blue-500/20 border-blue-400/50 text-blue-300 shadow-blue-500/25;
+  }
+
+  .timer-display {
+    @apply text-2xl font-light text-white/90 tracking-wider text-center;
+  }
+
+  /* Live transcription styles */
+  .live-transcription {
+    @apply max-w-xs truncate bg-black/30 px-3 py-1 rounded-lg border border-blue-400/30;
+  }
+
+  .transcription-area {
+    @apply w-full mb-3;
+  }
+
+  .transcription-area .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  /* Mode-specific control sections */
+  .assistant-controls {
+    @apply border-t border-white/10 pt-3;
+  }
+
+  .automation-controls {
+    @apply border-t border-white/10 pt-3;
+  }
+
+  /* Prevent text selection and sizing issues during drag */
+  .dragging {
+    @apply select-none;
+    pointer-events: none;
+  }
+
+  .dragging * {
+    pointer-events: none;
+  }
+
+  .prose {
+    h1, h2, h3, h4, h5, h6 {
+      @apply text-white/90;
+    }
+    p, ul, ol, li, blockquote {
+      @apply text-white/80;
+    }
+    strong {
+      @apply text-white/90;
+    }
+    a {
+      @apply text-blue-400 hover:text-blue-300;
+    }
+    code {
+      @apply bg-white/10 text-white/80 rounded-md px-1.5 py-1;
+    }
+    pre {
+      @apply bg-black/20 p-4 rounded-lg;
+    }
+  }
 }

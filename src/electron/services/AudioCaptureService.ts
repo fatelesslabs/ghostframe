@@ -27,6 +27,8 @@ export class AudioCaptureService {
   private audioBuffer: Buffer = Buffer.alloc(0);
   private config: Required<AudioCaptureConfig>;
   private onAudioDataCallback: ((data: AudioData) => void) | null = null;
+  private onTranscriptionCallback: ((text: string) => void) | null = null;
+  private transcriptionEnabled = false;
 
   constructor() {
     this.config = {
@@ -82,6 +84,14 @@ export class AudioCaptureService {
 
   setAudioDataCallback(callback: (data: AudioData) => void): void {
     this.onAudioDataCallback = callback;
+  }
+
+  setTranscriptionCallback(callback: (text: string) => void): void {
+    this.onTranscriptionCallback = callback;
+  }
+
+  enableTranscription(enabled: boolean): void {
+    this.transcriptionEnabled = enabled;
   }
 
   private async startMacOSCapture(): Promise<void> {
@@ -237,6 +247,11 @@ export class AudioCaptureService {
         if (this.onAudioDataCallback) {
           this.onAudioDataCallback(audioData);
         }
+
+        // Send for transcription if enabled
+        if (this.transcriptionEnabled && this.onTranscriptionCallback) {
+          this.processTranscription(audioData);
+        }
       }
 
       // Limit buffer size to prevent memory issues
@@ -337,5 +352,55 @@ export class AudioCaptureService {
 
   async cleanup(): Promise<void> {
     await this.stopCapture();
+  }
+
+  private async processTranscription(audioData: AudioData): Promise<void> {
+    try {
+      // Enhanced transcription processing
+      // In a real implementation, you would send the audio to a transcription service
+      // like Google Speech-to-Text, OpenAI Whisper, or Azure Speech Services
+
+      // For demonstration, we'll create more realistic mock transcription
+      const audioLevel = this.analyzeAudioLevel(audioData.data);
+
+      if (audioLevel > 0.1) {
+        // Only transcribe if there's significant audio
+        const mockPhrases = [
+          "Processing audio input...",
+          "Detected speech pattern",
+          "Analyzing voice data",
+          "Transcribing audio stream",
+          "Voice activity detected",
+          "Converting speech to text",
+          "Audio processing active",
+        ];
+
+        const randomPhrase =
+          mockPhrases[Math.floor(Math.random() * mockPhrases.length)];
+        const timestamp = new Date(audioData.timestamp).toLocaleTimeString();
+        const transcriptionText = `${randomPhrase} [${timestamp}]`;
+
+        if (this.onTranscriptionCallback) {
+          this.onTranscriptionCallback(transcriptionText);
+        }
+      }
+    } catch (error) {
+      console.error("Transcription processing error:", error);
+    }
+  }
+
+  private analyzeAudioLevel(base64Data: string): number {
+    try {
+      // Simple audio level analysis from base64 data
+      const buffer = Buffer.from(base64Data, "base64");
+      let sum = 0;
+      for (let i = 0; i < buffer.length; i += 2) {
+        const sample = buffer.readInt16LE(i);
+        sum += Math.abs(sample);
+      }
+      return sum / (buffer.length / 2) / 32767; // Normalize to 0-1
+    } catch {
+      return Math.random() * 0.5; // Fallback random level
+    }
   }
 }
