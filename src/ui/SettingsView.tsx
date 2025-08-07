@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Save } from "lucide-react";
 
 export interface AppSettings {
@@ -124,6 +124,14 @@ export const SettingsView = ({ settings, setSettings }: SettingsViewProps) => {
               step="500"
               className="input-field col-span-2"
             />
+            <div className="col-span-3 flex space-x-2 mt-2">
+              <button className="btn-secondary flex-1">
+                Start Auto Screenshots
+              </button>
+              <button className="btn-secondary flex-1">
+                Stop Auto Screenshots
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-3 items-center">
             <label htmlFor="profileType" className="text-sm text-white/70">

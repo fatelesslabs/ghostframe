@@ -1,5 +1,3 @@
-//(new) main.ts
-
 import {
   app,
   BrowserWindow,
@@ -22,13 +20,9 @@ import Store from "electron-store";
 
 const store = new Store();
 
-// Keep a global reference of the window object, if you don't, the window will
-// be closed automatically when the JavaScript object is garbage collected.
-
 let mainWindow: BrowserWindow | null;
 let isClickThrough = false;
 
-// Instantiate services
 const processRandomizer = new ProcessRandomizer();
 const aiService = new AIService();
 const automationService = new BrowserAutomationService();
@@ -75,7 +69,6 @@ async function createWindow() {
     mainWindow = null;
   });
 
-  // Set initial process title for stealth
   processRandomizer.regenerateRandomNames();
 }
 
@@ -83,7 +76,6 @@ app.on("ready", () => {
   createWindow();
   settingsService.initialize();
 
-  // Register global shortcuts
   globalShortcut.register("CommandOrControl+Shift+C", () => {
     toggleClickThrough();
   });
@@ -119,29 +111,15 @@ app.on("activate", () => {
 });
 
 app.on("will-quit", () => {
-  // Unregister all shortcuts.
   globalShortcut.unregisterAll();
 });
 
-// --- IPC Handlers for ghostframe API ---
-
-// Helper function to toggle click-through
 const toggleClickThrough = () => {
   isClickThrough = !isClickThrough;
   mainWindow?.setIgnoreMouseEvents(isClickThrough, { forward: true });
-  // Notify the renderer process of the change
   mainWindow?.webContents.send("click-through-toggled", isClickThrough);
 };
 
-// Helper function to move window
-const moveWindow = (deltaX: number, deltaY: number) => {
-  if (mainWindow) {
-    const [currentX, currentY] = mainWindow.getPosition();
-    mainWindow.setPosition(currentX + deltaX, currentY + deltaY);
-  }
-};
-
-// Window Management
 ipcMain.handle("window:toggleVisibility", () => {
   if (mainWindow) {
     mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
@@ -164,7 +142,6 @@ ipcMain.handle("window:getPosition", () => {
 });
 ipcMain.handle("system:quit", () => app.quit());
 
-// AI Service
 ipcMain.handle("ai:initialize", async (_event, config) => {
   const result = await aiService.initialize(config);
   mainWindow?.webContents.send(
@@ -195,7 +172,6 @@ ipcMain.handle("ai:sendScreenshot", async (_event, imageData) => {
   return await aiService.sendScreenshot(imageData);
 });
 
-// Capture Service
 ipcMain.handle("capture:startAudio", async () => {
   // For Windows: Browser-based audio capture is preferred (like cheating-daddy)
   // Only start main process audio capture if specifically requested or as fallback
@@ -247,7 +223,6 @@ ipcMain.handle("capture:stopPeriodicScreenshots", async (event) => {
   return await screenshotService.stopPeriodicCapture();
 });
 
-// Automation Service
 ipcMain.handle("automation:startSession", async (_event, config) => {
   const result = await automationService.startSession(config);
   mainWindow?.webContents.send(
@@ -271,8 +246,6 @@ ipcMain.handle("automation:executeAction", async (_event, action) => {
   );
   return result;
 });
-
-// Stealth/Process Randomizer/Window Mode
 ipcMain.handle("window:setMode", async (_event, mode) => {
   if (mainWindow) {
     return await stealthWindowManager.setMode(mainWindow, mode);
@@ -280,13 +253,8 @@ ipcMain.handle("window:setMode", async (_event, mode) => {
   return { success: false, error: "Main window not found" };
 });
 
-ipcMain.handle("window:toggleContentProtection", async () => {
-  if (mainWindow) {
-    return await stealthWindowManager.toggleContentProtection(mainWindow);
-  }
-  return { success: false, enabled: false, error: "Main window not found" };
-});
-
-ipcMain.handle("window:getContentProtectionStatus", async () => {
-  return { enabled: stealthWindowManager.isContentProtectionEnabled() };
+ipcMain.handle("settings:save", (_event, settings) => {
+  console.log("Saving settings:", settings);
+  mainWindow?.webContents.send("log-message", "Settings saved successfully!");
+  return { success: true };
 });

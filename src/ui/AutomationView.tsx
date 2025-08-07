@@ -70,22 +70,12 @@ export const AutomationView = () => {
   };
 
   return (
-    <div className="space-y-4 animate-in fade-in duration-300">
-      {/* Session Status */}
-      <div className="bg-black/20 backdrop-blur-xl rounded-xl p-4 border border-white/10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div
-              className={`w-3 h-3 rounded-full ${
-                isSessionActive ? "bg-green-400" : "bg-red-400"
-              }`}
-            ></div>
-            <span className="text-sm text-white/80">
-              {isSessionActive
-                ? "Browser session active"
-                : "Browser session stopped"}
-            </span>
-          </div>
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
+        <h3 className="text-lg font-medium text-white/90 mb-4">
+          🤖 Automation Controls
+        </h3>
+        <div className="space-y-4">
           <div className="flex space-x-2">
             <button
               onClick={() => window.ghostframe.automation?.stopSession?.()}
@@ -95,16 +85,6 @@ export const AutomationView = () => {
               Stop Session
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-black/20 backdrop-blur-xl rounded-xl p-4 border border-white/10">
-        <h3 className="text-base font-medium text-white/90 mb-4 flex items-center">
-          🚀 Quick Actions
-        </h3>
-        <div className="space-y-3">
-          {/* Navigate */}
           <div className="flex space-x-2">
             <input
               type="url"
@@ -122,8 +102,6 @@ export const AutomationView = () => {
               <span className="hidden sm:inline ml-1">Navigate</span>
             </button>
           </div>
-
-          {/* Click Element */}
           <div className="flex space-x-2">
             <input
               type="text"
@@ -143,8 +121,6 @@ export const AutomationView = () => {
               <span className="hidden sm:inline ml-1">Click</span>
             </button>
           </div>
-
-          {/* Type Text */}
           <div className="flex space-x-2">
             <input
               type="text"
@@ -178,12 +154,9 @@ export const AutomationView = () => {
         </div>
       </div>
 
-      {/* Activity Log */}
-      <div className="bg-black/20 backdrop-blur-xl rounded-xl p-4 border border-white/10">
-        <h3 className="text-base font-medium text-white/90 mb-4 flex items-center">
-          📋 Activity Log
-        </h3>
-        <div className="h-40 overflow-y-auto space-y-2 pr-2">
+      <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
+        <h3 className="text-lg font-medium text-white/90 mb-4">📋 Logs</h3>
+        <div className="h-48 overflow-y-auto space-y-2 pr-2">
           {logs.length === 0 && (
             <p className="text-sm text-white/50">No automation activity yet.</p>
           )}

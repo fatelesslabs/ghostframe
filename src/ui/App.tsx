@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Mic,
   MicOff,
@@ -30,67 +30,37 @@ const App = () => {
   });
   const [isRecording, setIsRecording] = useState(false);
   const [isClickThrough, setIsClickThrough] = useState(false);
-  const [isContentProtected, setIsContentProtected] = useState(false);
-  const [showInput, setShowInput] = useState(false);
-  const [isAiReady, setIsAiReady] = useState(false);
+  const [showInput, setShowInput] = useState(true);
+  const [inputValue, setInputValue] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
   const [timer, setTimer] = useState("00:00");
   const [transcription, setTranscription] = useState("");
   const intervalRef = useRef<number | null>(null);
-  const initializingRef = useRef<boolean>(false);
-  const webAudioCapture = useRef<WebAudioCapture | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        // Load stored AI configuration
-        const storedConfig = await window.ghostframe.ai.getStoredConfig?.();
-        if (storedConfig && storedConfig.apiKey) {
-          setSettings((prev) => ({
-            ...prev,
-            provider: storedConfig.provider || prev.provider,
-            apiKey: storedConfig.apiKey || prev.apiKey,
-          }));
-        }
-      } catch (error) {
-        console.error("Failed to load stored settings:", error);
-      }
-    };
+    scrollToBottom();
+  }, [messages]);
 
+  useEffect(() => {
+    const loadSettings = async () => {};
     loadSettings();
-  }, []);
 
-  useEffect(() => {
-    const initializeAi = async () => {
-      if (settings.apiKey && !initializingRef.current) {
-        initializingRef.current = true;
-        try {
-          console.log("Attempting to initialize AI...");
-          const result = await window.ghostframe.ai.initialize?.({
-            provider: settings.provider,
-            apiKey: settings.apiKey,
-            customPrompt: settings.customInstructions,
-          });
-          console.log("AI initialization returned:", result);
-          setIsAiReady(result?.success || false);
-          if (!result?.success) {
-            console.error("AI initialization failed:", result?.error);
-          }
-        } catch (error) {
-          console.error(
-            "An unexpected error occurred during AI initialization:",
-            error
-          );
-          setIsAiReady(false);
-        } finally {
-          initializingRef.current = false;
-        }
-      }
+    const handleAiResponse = (_event: any, response: any) => {
+      const aiMessage: Message = {
+        role: "ai",
+        content: response.success
+          ? response.text
+          : `**AI Error:** ${response.error}`,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
     };
 
-    initializeAi();
-  }, [settings.apiKey, settings.provider, settings.customInstructions]);
-
-  useEffect(() => {
     const handleClickThroughToggle = (_event: any, enabled: boolean) => {
       setIsClickThrough(enabled);
     };
@@ -298,47 +268,55 @@ const App = () => {
         isClickThrough ? "pointer-events-none" : ""
       }`}
     >
-      <div className="bg-black/85 backdrop-blur-xl rounded-2xl p-4 border border-white/10 shadow-2xl">
-        {/* Top Row - Mode Selection and System Controls */}
-        <div className="header-container">
-          <div className="flex items-center justify-between mb-4">
-            {/* Mode Selector - Primary Navigation */}
-            <div className="mode-selector">
-              <button
-                onClick={() => {
-                  setMode("assistant");
-                  setShowInput(true);
-                }}
-                className={`mode-btn ${
-                  mode === "assistant" ? "mode-active" : "mode-inactive"
-                }`}
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span>Assistant</span>
-              </button>
-              <button
-                onClick={() => setMode("automation")}
-                className={`mode-btn ${
-                  mode === "automation" ? "mode-active" : "mode-inactive"
-                }`}
-              >
-                <Bot className="w-4 h-4" />
-                <span>Automation</span>
-              </button>
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-4 mb-6 border border-white/20 shadow-2xl">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={handleRecordToggle}
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg backdrop-blur-sm ${
+                isRecording
+                  ? "bg-red-500/80 hover:bg-red-600/90 shadow-red-500/25"
+                  : "bg-blue-500/80 hover:bg-blue-600/90 shadow-blue-500/25"
+              }`}
+            >
+              {isRecording ? (
+                <MicOff className="w-6 h-6" />
+              ) : (
+                <Mic className="w-6 h-6" />
+              )}
+            </button>
+
+            <div className="flex flex-col items-center">
+              <div className="text-3xl font-light text-white/90 tracking-wider mb-2">
+                {timer}
+              </div>
+              <div className="flex items-center justify-center space-x-2">
+                <button
+                  onClick={() => setMode("assistant")}
+                  className={`btn-mode ${
+                    mode === "assistant"
+                      ? "btn-mode-active-blue"
+                      : "btn-mode-inactive"
+                  }`}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Assistant</span>
+                </button>
+                <button
+                  onClick={() => setMode("automation")}
+                  className={`btn-mode ${
+                    mode === "automation"
+                      ? "btn-mode-active-purple"
+                      : "btn-mode-inactive"
+                  }`}
+                >
+                  <Bot className="w-4 h-4" />
+                  <span>Automation</span>
+                </button>
+              </div>
             </div>
 
-            {/* System Controls with inline drag handle */}
-            <div className="flex items-center space-x-2">
-              {/* Inline drag handle */}
-              <span className="drag-handle" title="Drag to move window">
-                <GripHorizontal className="w-4 h-4 text-gray-400 hover:text-gray-300 transition-colors" />
-              </span>
-              {isContentProtected && (
-                <div className="status-badge status-protected">
-                  <Shield className="w-3.5 h-3.5" />
-                  <span>Protected</span>
-                </div>
-              )}
+            <div className="flex items-center space-x-4">
               <button
                 onClick={handleToggleContentProtection}
                 className={`protection-toggle ${

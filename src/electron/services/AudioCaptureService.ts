@@ -1,4 +1,3 @@
-// Enhanced AudioCaptureService inspired by cheating-daddy-master
 import { spawn, ChildProcess } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
@@ -14,8 +13,12 @@ export interface AudioCaptureConfig {
 }
 
 export interface AudioData {
-  data: string; // base64 encoded
-  format: AudioFormat;
+  data: string;
+  format: {
+    sampleRate: number;
+    channels: number;
+    bitDepth: number;
+  };
   timestamp: number;
   analysis?: AudioAnalysis;
 }
@@ -36,11 +39,10 @@ export class AudioCaptureService {
 
   constructor() {
     this.config = {
-      sampleRate: AudioCaptureService.SAMPLE_RATE,
-      channels: 1, // Mono for AI processing
+      sampleRate: 24000,
+      channels: 1,
       bitDepth: 16,
-      bufferDuration: AudioCaptureService.AUDIO_CHUNK_DURATION,
-      enableDebug: false,
+      bufferDuration: 0.1,
     };
 
     // Ensure audio directories exist
@@ -127,7 +129,6 @@ To install FFmpeg on Windows:
   }
 
   private async startMacOSCapture(): Promise<void> {
-    // Use built-in macOS audio capture with sox or ffmpeg
     const captureCommand = this.findAudioCaptureCommand();
 
     if (!captureCommand) {
@@ -153,14 +154,14 @@ To install FFmpeg on Windows:
         this.config.sampleRate.toString(),
         "-c",
         this.config.channels.toString(),
-        "-", // Output to stdout
+        "-",
       ];
     } else if (captureCommand.includes("ffmpeg")) {
       args = [
         "-f",
         "avfoundation",
         "-i",
-        ":0", // Default audio input
+        ":0",
         "-f",
         "s16le",
         "-ar",
@@ -179,33 +180,6 @@ To install FFmpeg on Windows:
   }
 
   private async startWindowsCapture(): Promise<void> {
-    // Try multiple Windows audio capture methods
-    const methods = [
-      () => this.tryWindowsFFmpeg(),
-      () => this.tryWindowsPowershell(),
-      () => this.tryWindowsNode(),
-    ];
-
-    let lastError: Error | null = null;
-
-    for (const method of methods) {
-      try {
-        await method();
-        console.log("✅ Windows audio capture method succeeded");
-        return;
-      } catch (error) {
-        console.warn("⚠️ Windows audio capture method failed:", error);
-        lastError = error as Error;
-        continue;
-      }
-    }
-
-    throw new Error(
-      `All Windows audio capture methods failed. Last error: ${lastError?.message}. Please install FFmpeg or use a different audio source.`
-    );
-  }
-
-  private async tryWindowsFFmpeg(): Promise<void> {
     const ffmpegPath = this.findFFmpeg();
     if (!ffmpegPath) {
       throw new Error("FFmpeg not found");
@@ -218,7 +192,7 @@ To install FFmpeg on Windows:
       "-f",
       "dshow",
       "-i",
-      "audio=", // Try default audio device
+      'audio="Microphone"',
       "-f",
       "s16le",
       "-ar",
@@ -253,7 +227,6 @@ To install FFmpeg on Windows:
   }
 
   private async startLinuxCapture(): Promise<void> {
-    // Use ALSA or PulseAudio
     let command = "arecord";
     let args = [
       "-f",
@@ -264,16 +237,14 @@ To install FFmpeg on Windows:
       this.config.channels.toString(),
       "-t",
       "raw",
-      "-", // Output to stdout
+      "-",
     ];
 
-    // Try PulseAudio if arecord fails
     try {
       this.captureProcess = spawn(command, args, {
         stdio: ["ignore", "pipe", "pipe"],
       });
     } catch (error) {
-      // Fallback to parecord (PulseAudio)
       command = "parecord";
       args = [
         "--format=s16le",
@@ -310,33 +281,12 @@ To install FFmpeg on Windows:
     this.captureProcess.stdout.on("data", (data: Buffer) => {
       this.audioBuffer = Buffer.concat([this.audioBuffer, data]);
 
-      // Process complete chunks immediately (like cheating-daddy)
-      while (this.audioBuffer.length >= CHUNK_SIZE) {
-        const chunk = this.audioBuffer.slice(0, CHUNK_SIZE);
-        this.audioBuffer = this.audioBuffer.slice(CHUNK_SIZE);
+      while (this.audioBuffer.length >= chunkSize) {
+        const chunk = this.audioBuffer.slice(0, chunkSize);
+        this.audioBuffer = this.audioBuffer.slice(chunkSize);
 
-        // Convert stereo to mono (like cheating-daddy)
-        const monoChunk = this.convertStereoToMono(chunk);
+        const processedChunk = this.processAudioChunk(chunk);
 
-        // Enhanced audio processing with analysis
-        const timestamp = Date.now();
-        let analysis: AudioAnalysis | undefined;
-
-        if (this.config.enableDebug) {
-          analysis = AudioUtils.analyzeAudioBuffer(monoChunk, "Capture");
-
-          // Save debug audio if it's interesting (not silent)
-          if (analysis.silencePercentage < 95) {
-            AudioUtils.saveDebugAudio(monoChunk, "capture", timestamp);
-          }
-        }
-
-        // Real-time feedback like cheating-daddy
-        if (this.config.enableDebug) {
-          process.stdout.write(".");
-        }
-
-        // Convert to base64 and send immediately
         const audioData: AudioData = {
           data: monoChunk.toString("base64"),
           format: {
@@ -351,15 +301,13 @@ To install FFmpeg on Windows:
         if (this.onAudioDataCallback) {
           this.onAudioDataCallback(audioData);
         }
-
-        // Send for transcription if enabled
-        if (this.transcriptionEnabled && this.onTranscriptionCallback) {
-          this.processTranscription(audioData);
-        }
       }
 
-      // Limit buffer size to prevent memory issues (like cheating-daddy)
-      const maxBufferSize = SAMPLE_RATE * BYTES_PER_SAMPLE * 1; // 1 second max
+      const maxBufferSize =
+        this.config.sampleRate *
+        (this.config.bitDepth / 8) *
+        this.config.channels *
+        2;
       if (this.audioBuffer.length > maxBufferSize) {
         this.audioBuffer = this.audioBuffer.slice(-maxBufferSize);
       }
@@ -390,10 +338,9 @@ To install FFmpeg on Windows:
   }
 
   private processAudioChunk(chunk: Buffer): Buffer {
-    // If stereo, convert to mono by taking left channel
     if (this.config.channels === 2) {
-      const samples = chunk.length / 4; // 16-bit stereo = 4 bytes per sample pair
-      const monoBuffer = Buffer.alloc(samples * 2); // 16-bit mono = 2 bytes per sample
+      const samples = chunk.length / 4;
+      const monoBuffer = Buffer.alloc(samples * 2);
 
       for (let i = 0; i < samples; i++) {
         const leftSample = chunk.readInt16LE(i * 4);
@@ -455,9 +402,7 @@ To install FFmpeg on Windows:
         const { execSync } = require("child_process");
         execSync(`which ${cmd}`, { stdio: "ignore" });
         return cmd;
-      } catch (error) {
-        // Command not found, try next
-      }
+      } catch (error) {}
     }
 
     return null;
@@ -476,21 +421,10 @@ To install FFmpeg on Windows:
 
     for (const path of possiblePaths) {
       try {
-        if (fs.existsSync(path)) {
-          console.log(`✅ Found FFmpeg at: ${path}`);
+        if (fs.existsSync(path) || path === "ffmpeg") {
           return path;
         }
-
-        // Test if command is available in PATH
-        if (path === "ffmpeg" || path === "ffmpeg.exe") {
-          const { execSync } = require("child_process");
-          execSync(`where ${path}`, { stdio: "ignore" });
-          console.log(`✅ Found FFmpeg in PATH: ${path}`);
-          return path;
-        }
-      } catch (error) {
-        // Continue to next path
-      }
+      } catch (error) {}
     }
 
     console.log("❌ FFmpeg not found in any standard location");
