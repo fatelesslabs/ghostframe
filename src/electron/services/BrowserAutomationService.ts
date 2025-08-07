@@ -1,4 +1,3 @@
-// Migrated BrowserAutomationService for new Electron/React setup
 import * as puppeteer from "puppeteer-core";
 import * as path from "path";
 import * as fs from "fs";
@@ -47,7 +46,6 @@ export class BrowserAutomationService {
         return { success: false, error: "Automation session already active" };
       }
 
-      // Find Chrome executable
       const executablePath =
         config.executablePath || this.findChromeExecutable();
 
@@ -59,12 +57,11 @@ export class BrowserAutomationService {
         };
       }
 
-      // Launch browser with realistic settings
       this.browser = await puppeteer.launch({
-        headless: config.headless || false, // Default to visible for user monitoring
+        headless: config.headless || false,
         executablePath,
         userDataDir: config.userDataDir || this.getDefaultUserDataDir(),
-        slowMo: config.slowMo || 50, // Slight delay to appear more human
+        slowMo: config.slowMo || 50,
         defaultViewport: null,
         args: [
           "--no-sandbox",
@@ -80,11 +77,9 @@ export class BrowserAutomationService {
         ],
       });
 
-      // Get the first page or create new one
       const pages = await this.browser.pages();
       this.page = pages.length > 0 ? pages[0] : await this.browser.newPage();
 
-      // Apply stealth measures
       await this.applyStealthMeasures();
 
       this.isActive = true;
@@ -166,7 +161,6 @@ export class BrowserAutomationService {
       timeout: 30000,
     });
 
-    // Add random delay to appear human
     await this.humanDelay();
 
     return {
@@ -186,12 +180,10 @@ export class BrowserAutomationService {
 
     await this.page.waitForSelector(selector, { timeout: 10000 });
 
-    // Add random mouse movement to appear human
     const element = await this.page.$(selector);
     if (element) {
       const box = await element.boundingBox();
       if (box) {
-        // Move to element with slight randomization
         await this.page.mouse.move(
           box.x + box.width / 2 + (Math.random() - 0.5) * 10,
           box.y + box.height / 2 + (Math.random() - 0.5) * 10
@@ -216,15 +208,13 @@ export class BrowserAutomationService {
     await this.page.waitForSelector(selector, { timeout: 10000 });
     await this.page.focus(selector);
 
-    // Clear field first if needed
     if (options.clear !== false) {
       await this.page.click(selector, { clickCount: 3 });
       await this.page.keyboard.press("Backspace");
     }
 
-    // Type with human-like delays
     await this.page.type(selector, text, {
-      delay: 50 + Math.random() * 100, // Random typing speed
+      delay: 50 + Math.random() * 100,
     });
 
     await this.humanDelay();
@@ -241,7 +231,6 @@ export class BrowserAutomationService {
 
     await this.page.waitForSelector(selector, { timeout: 10000 });
 
-    // Use evaluate for faster filling when speed is needed
     await this.page.evaluate(
       (sel, val) => {
         const element = document.querySelector(sel) as
@@ -267,12 +256,10 @@ export class BrowserAutomationService {
 
     await this.page.waitForSelector(selector, { timeout: 10000 });
 
-    // Wait for any form validation
     await this.humanDelay(500, 1000);
 
     await this.page.click(selector);
 
-    // Wait for potential navigation
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     return { success: true, data: { message: "Form submitted" } };
@@ -384,14 +371,11 @@ export class BrowserAutomationService {
   private async applyStealthMeasures(): Promise<void> {
     if (!this.page) return;
 
-    // Override webdriver detection
     await this.page.evaluateOnNewDocument(() => {
-      // Mock chrome runtime
       (window as any).chrome = {
         runtime: {},
       };
 
-      // Override permissions
       const originalQuery = window.navigator.permissions.query;
       window.navigator.permissions.query = (parameters: any) => {
         if (parameters.name === "notifications") {
@@ -408,12 +392,10 @@ export class BrowserAutomationService {
       };
     });
 
-    // Set realistic user agent and viewport
     await this.page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     );
 
-    // Set extra headers
     await this.page.setExtraHTTPHeaders({
       "Accept-Language": "en-US,en;q=0.9",
       "Accept-Encoding": "gzip, deflate, br",
@@ -427,15 +409,12 @@ export class BrowserAutomationService {
 
   private findChromeExecutable(): string | null {
     const possiblePaths = [
-      // Windows
       "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
       "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
       process.env.LOCALAPPDATA + "\\Google\\Chrome\\Application\\chrome.exe",
 
-      // macOS
       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
 
-      // Linux
       "/usr/bin/google-chrome",
       "/usr/bin/google-chrome-stable",
       "/usr/bin/chromium-browser",

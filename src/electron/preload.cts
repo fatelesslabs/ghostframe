@@ -1,8 +1,6 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
-// Define the API that will be exposed to the renderer process
 export interface GhostframeAPI {
-  // AI Service
   ai: {
     initialize: (config: any) => Promise<any>;
     sendMessage: (message: string) => Promise<any>;
@@ -11,14 +9,12 @@ export interface GhostframeAPI {
     getStoredConfig: () => Promise<any>;
   };
 
-  // Browser Automation
   automation: {
     executeAction: (action: any) => Promise<any>;
     startSession: (config?: any) => Promise<any>;
     stopSession: () => Promise<any>;
   };
 
-  // Capture Services
   capture: {
     startAudio: () => Promise<any>;
     stopAudio: () => Promise<any>;
@@ -27,30 +23,25 @@ export interface GhostframeAPI {
     stopPeriodicScreenshots: () => Promise<any>;
   };
 
-  // Window Management
   window: {
     toggleVisibility: () => Promise<any>;
     toggleClickThrough: () => Promise<any>;
     setMode: (mode: "overlay" | "automation") => Promise<any>;
   };
 
-  // System
   system: {
     openExternal: (url: string) => Promise<any>;
     quit: () => Promise<any>;
   };
 
-  // Events
   on: (channel: string, callback: (...args: any[]) => void) => void;
   off: (channel: string, callback: (...args: any[]) => void) => void;
   send: (channel: string, ...args: any[]) => void;
 
-  // Utility
   getVersion: () => string;
   getPlatform: () => string;
 }
 
-// Create the API object
 const ghostframeAPI: GhostframeAPI = {
   ai: {
     initialize: (config) => ipcRenderer.invoke("ai:initialize", config),
@@ -92,7 +83,6 @@ const ghostframeAPI: GhostframeAPI = {
   },
 
   on: (channel, callback) => {
-    // Validate allowed channels for security
     const validChannels = [
       "ai-response",
       "click-through-toggled",
@@ -116,7 +106,6 @@ const ghostframeAPI: GhostframeAPI = {
   },
 
   send: (channel, ...args) => {
-    // Validate allowed send channels
     const validSendChannels = ["shortcuts:updateKeybinds"];
 
     if (validSendChannels.includes(channel)) {
@@ -133,11 +122,9 @@ const ghostframeAPI: GhostframeAPI = {
   },
 };
 
-// Remove Node.js global variables for security
 delete (global as any).process;
 delete (global as any).Buffer;
 
-// Override navigator.webdriver for stealth
 try {
   Object.defineProperty(navigator, "webdriver", {
     get: () => undefined,
@@ -149,26 +136,21 @@ try {
 console.log("🔧 Preload script running...");
 console.log("🔧 About to expose Ghostframe API");
 
-// Expose the API to the renderer process
 contextBridge.exposeInMainWorld("ghostframe", ghostframeAPI);
 
 console.log("✅ Ghostframe API exposed to window.ghostframe");
 console.log("🔧 Available API methods:", Object.keys(ghostframeAPI));
 
-// Add some additional security measures
 window.addEventListener("DOMContentLoaded", () => {
-  // Remove any traces of Node.js from the renderer
   delete (window as any).require;
   delete (window as any).exports;
   delete (window as any).module;
 
-  // Add a custom user agent to help with stealth
   Object.defineProperty(navigator, "webdriver", {
     get: () => undefined,
   });
 });
 
-// Log any errors that occur during preload
 process.on("uncaughtException", (error) => {
   console.error("Preload script error:", error);
 });

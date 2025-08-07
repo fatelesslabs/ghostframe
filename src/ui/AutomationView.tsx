@@ -1,4 +1,3 @@
-//(new) AutomationView.tsx
 import { useState, useEffect } from "react";
 import { Play, Square, Globe, MousePointerClick, Type } from "lucide-react";
 
@@ -15,7 +14,6 @@ export const AutomationView = () => {
   const [typeSelector, setTypeSelector] = useState("");
   const [typeText, setTypeText] = useState("");
 
-  // Move handleLogMessage to component scope so it's accessible everywhere
   const handleLogMessage = (
     _event: any,
     message: string,
@@ -28,7 +26,6 @@ export const AutomationView = () => {
   };
 
   useEffect(() => {
-    // Listen for log messages from the main process
     if (window.ghostframe?.on) {
       window.ghostframe.on("log-message", handleLogMessage);
     }
@@ -52,13 +49,11 @@ export const AutomationView = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Controls */}
       <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
         <h3 className="text-lg font-medium text-white/90 mb-4">
           🤖 Automation Controls
         </h3>
         <div className="space-y-4">
-          {/* Session Controls */}
           <div className="flex space-x-2">
             <button
               onClick={() => window.ghostframe.automation.startSession()}
@@ -75,7 +70,6 @@ export const AutomationView = () => {
               Stop Session
             </button>
           </div>
-          {/* Navigate */}
           <div className="flex space-x-2">
             <input
               type="url"
@@ -91,7 +85,6 @@ export const AutomationView = () => {
               <Globe className="w-4 h-4" /> Navigate
             </button>
           </div>
-          {/* Click */}
           <div className="flex space-x-2">
             <input
               type="text"
@@ -109,7 +102,6 @@ export const AutomationView = () => {
               <MousePointerClick className="w-4 h-4" /> Click
             </button>
           </div>
-          {/* Type */}
           <div className="flex space-x-2">
             <input
               type="text"
@@ -141,7 +133,6 @@ export const AutomationView = () => {
         </div>
       </div>
 
-      {/* Logs */}
       <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
         <h3 className="text-lg font-medium text-white/90 mb-4">📋 Logs</h3>
         <div className="h-48 overflow-y-auto space-y-2 pr-2">

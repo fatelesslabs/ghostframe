@@ -1,4 +1,3 @@
-//(new) app.tsx
 import React, { useState, useEffect, useRef } from "react";
 import {
   Mic,
@@ -36,7 +35,7 @@ const App = () => {
   });
   const [isRecording, setIsRecording] = useState(false);
   const [isClickThrough, setIsClickThrough] = useState(false);
-  const [showInput, setShowInput] = useState(true); // Keep input open
+  const [showInput, setShowInput] = useState(true);
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [timer, setTimer] = useState("00:00");
@@ -53,9 +52,6 @@ const App = () => {
 
   useEffect(() => {
     const loadSettings = async () => {
-      // Remove getStoredConfig usage if not exposed in preload
-      // If you want to persist settings, use localStorage or expose getStoredConfig in preload
-      // For now, skip loading stored config
     };
     loadSettings();
 
@@ -168,7 +164,6 @@ const App = () => {
       }`}
     >
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-4 mb-6 border border-white/20 shadow-2xl">
           <div className="flex items-center justify-between">
             <button
