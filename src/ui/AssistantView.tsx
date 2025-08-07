@@ -27,6 +27,25 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
   // const [isProcessing, setIsProcessing] = useState(false); // Commented out as unused
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  // Enhanced markdown rendering function inspired by cheating-daddy
+  const renderMarkdown = (content: string): string => {
+    try {
+      // Configure marked for better security and formatting
+      marked.setOptions({
+        breaks: true,
+        gfm: true,
+      });
+
+      const rendered = marked.parse(content) as string;
+      // For now, don't wrap words to avoid layout issues
+      // return wrapWordsInSpans(rendered);
+      return rendered;
+    } catch (error) {
+      console.warn("Error parsing markdown:", error);
+      return content; // Fallback to plain text
+    }
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -285,7 +304,7 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
                     <div
                       className="prose prose-invert prose-sm max-w-none text-white/80 leading-relaxed"
                       dangerouslySetInnerHTML={{
-                        __html: marked(msg.content || ""),
+                        __html: renderMarkdown(msg.content || ""),
                       }}
                     />
                   )}

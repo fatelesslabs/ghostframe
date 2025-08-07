@@ -1,24 +1,23 @@
-// Migrated AudioCaptureService for new Electron/React setup
+// Enhanced AudioCaptureService inspired by cheating-daddy-master
 import { spawn, ChildProcess } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
+import { AudioUtils, AudioAnalysis, AudioFormat } from "./AudioUtils.js";
 
 export interface AudioCaptureConfig {
   sampleRate?: number;
   channels?: number;
   bitDepth?: number;
   bufferDuration?: number;
+  enableDebug?: boolean;
 }
 
 export interface AudioData {
   data: string; // base64 encoded
-  format: {
-    sampleRate: number;
-    channels: number;
-    bitDepth: number;
-  };
+  format: AudioFormat;
   timestamp: number;
+  analysis?: AudioAnalysis;
 }
 
 export class AudioCaptureService {
@@ -30,13 +29,22 @@ export class AudioCaptureService {
   private onTranscriptionCallback: ((text: string) => void) | null = null;
   private transcriptionEnabled = false;
 
+  // Enhanced constants from cheating-daddy implementation
+  private static readonly SAMPLE_RATE = 24000;
+  private static readonly BUFFER_SIZE = 4096;
+  private static readonly AUDIO_CHUNK_DURATION = 0.1; // 100ms chunks
+
   constructor() {
     this.config = {
-      sampleRate: 24000,
+      sampleRate: AudioCaptureService.SAMPLE_RATE,
       channels: 1, // Mono for AI processing
       bitDepth: 16,
-      bufferDuration: 0.1, // 100ms chunks
+      bufferDuration: AudioCaptureService.AUDIO_CHUNK_DURATION,
+      enableDebug: false,
     };
+
+    // Ensure audio directories exist
+    AudioUtils.ensureAudioDirectories();
   }
 
   async startCapture(
@@ -49,6 +57,8 @@ export class AudioCaptureService {
     try {
       this.config = { ...this.config, ...config };
 
+      console.log("Starting enhanced audio capture with config:", this.config);
+
       if (process.platform === "darwin") {
         await this.startMacOSCapture();
       } else if (process.platform === "win32") {
@@ -58,10 +68,32 @@ export class AudioCaptureService {
       }
 
       this.isCapturing = true;
-      console.log("Audio capture started");
+      console.log("✅ Enhanced audio capture started successfully");
+
+      if (this.config.enableDebug) {
+        console.log(
+          "🔧 Debug mode enabled - audio analysis and logging active"
+        );
+      }
+
       return { success: true };
     } catch (error) {
-      return { success: false, error: (error as Error).message };
+      console.error("❌ Audio capture failed:", error);
+
+      let errorMessage = (error as Error).message;
+
+      // Provide helpful error messages for common issues
+      if (errorMessage.includes("ENOENT") && errorMessage.includes("ffmpeg")) {
+        errorMessage = `FFmpeg not found. Please install FFmpeg for audio capture. 
+        
+To install FFmpeg on Windows:
+1. Download from https://ffmpeg.org/download.html
+2. Extract to C:\\ffmpeg
+3. Add C:\\ffmpeg\\bin to your PATH
+4. Restart the application`;
+      }
+
+      return { success: false, error: errorMessage };
     }
   }
 
@@ -147,20 +179,46 @@ export class AudioCaptureService {
   }
 
   private async startWindowsCapture(): Promise<void> {
-    // Use Windows built-in tools or ffmpeg
-    const ffmpegPath = this.findFFmpeg();
+    // Try multiple Windows audio capture methods
+    const methods = [
+      () => this.tryWindowsFFmpeg(),
+      () => this.tryWindowsPowershell(),
+      () => this.tryWindowsNode(),
+    ];
 
-    if (!ffmpegPath) {
-      throw new Error(
-        "FFmpeg not found. Please install FFmpeg for audio capture."
-      );
+    let lastError: Error | null = null;
+
+    for (const method of methods) {
+      try {
+        await method();
+        console.log("✅ Windows audio capture method succeeded");
+        return;
+      } catch (error) {
+        console.warn("⚠️ Windows audio capture method failed:", error);
+        lastError = error as Error;
+        continue;
+      }
     }
+
+    throw new Error(
+      `All Windows audio capture methods failed. Last error: ${lastError?.message}. Please install FFmpeg or use a different audio source.`
+    );
+  }
+
+  private async tryWindowsFFmpeg(): Promise<void> {
+    const ffmpegPath = this.findFFmpeg();
+    if (!ffmpegPath) {
+      throw new Error("FFmpeg not found");
+    }
+
+    // Try to list audio devices first
+    console.log("🔍 Detecting Windows audio devices...");
 
     const args = [
       "-f",
       "dshow",
       "-i",
-      'audio="Microphone"', // You might need to adjust this
+      "audio=", // Try default audio device
       "-f",
       "s16le",
       "-ar",
@@ -175,6 +233,23 @@ export class AudioCaptureService {
     });
 
     this.setupAudioProcessing();
+  }
+
+  private async tryWindowsPowershell(): Promise<void> {
+    // Use PowerShell with Windows Media Format SDK (if available)
+    console.log("🔍 Trying PowerShell audio capture...");
+
+    // This is a fallback method - create a simple PowerShell script
+    // that can capture audio using Windows APIs
+    throw new Error("PowerShell audio capture not implemented yet");
+  }
+
+  private async tryWindowsNode(): Promise<void> {
+    // Use Node.js audio libraries as fallback
+    console.log("🔍 Trying Node.js audio capture...");
+
+    // For now, this method is not implemented
+    throw new Error("Node.js audio capture not implemented yet");
   }
 
   private async startLinuxCapture(): Promise<void> {
@@ -220,28 +295,57 @@ export class AudioCaptureService {
       throw new Error("Failed to setup audio capture process");
     }
 
-    const chunkSize = this.calculateChunkSize();
+    // Enhanced chunking inspired by cheating-daddy
+    const CHUNK_DURATION = 0.1; // 100ms chunks for real-time processing
+    const SAMPLE_RATE = this.config.sampleRate;
+    const BYTES_PER_SAMPLE = this.config.bitDepth / 8;
+    const CHANNELS = 2; // Assume stereo input, convert to mono
+    const CHUNK_SIZE =
+      SAMPLE_RATE * BYTES_PER_SAMPLE * CHANNELS * CHUNK_DURATION;
+
+    console.log(
+      `Audio chunking: ${CHUNK_DURATION}s chunks, ${CHUNK_SIZE} bytes each`
+    );
 
     this.captureProcess.stdout.on("data", (data: Buffer) => {
       this.audioBuffer = Buffer.concat([this.audioBuffer, data]);
 
-      // Process complete chunks
-      while (this.audioBuffer.length >= chunkSize) {
-        const chunk = this.audioBuffer.slice(0, chunkSize);
-        this.audioBuffer = this.audioBuffer.slice(chunkSize);
+      // Process complete chunks immediately (like cheating-daddy)
+      while (this.audioBuffer.length >= CHUNK_SIZE) {
+        const chunk = this.audioBuffer.slice(0, CHUNK_SIZE);
+        this.audioBuffer = this.audioBuffer.slice(CHUNK_SIZE);
 
-        // Convert to mono if needed
-        const processedChunk = this.processAudioChunk(chunk);
+        // Convert stereo to mono (like cheating-daddy)
+        const monoChunk = this.convertStereoToMono(chunk);
 
-        // Convert to base64 and send
+        // Enhanced audio processing with analysis
+        const timestamp = Date.now();
+        let analysis: AudioAnalysis | undefined;
+
+        if (this.config.enableDebug) {
+          analysis = AudioUtils.analyzeAudioBuffer(monoChunk, "Capture");
+
+          // Save debug audio if it's interesting (not silent)
+          if (analysis.silencePercentage < 95) {
+            AudioUtils.saveDebugAudio(monoChunk, "capture", timestamp);
+          }
+        }
+
+        // Real-time feedback like cheating-daddy
+        if (this.config.enableDebug) {
+          process.stdout.write(".");
+        }
+
+        // Convert to base64 and send immediately
         const audioData: AudioData = {
-          data: processedChunk.toString("base64"),
+          data: monoChunk.toString("base64"),
           format: {
             sampleRate: this.config.sampleRate,
-            channels: this.config.channels,
+            channels: 1, // Always mono output
             bitDepth: this.config.bitDepth,
           },
-          timestamp: Date.now(),
+          timestamp,
+          analysis,
         };
 
         if (this.onAudioDataCallback) {
@@ -254,12 +358,8 @@ export class AudioCaptureService {
         }
       }
 
-      // Limit buffer size to prevent memory issues
-      const maxBufferSize =
-        this.config.sampleRate *
-        (this.config.bitDepth / 8) *
-        this.config.channels *
-        2; // 2 seconds
+      // Limit buffer size to prevent memory issues (like cheating-daddy)
+      const maxBufferSize = SAMPLE_RATE * BYTES_PER_SAMPLE * 1; // 1 second max
       if (this.audioBuffer.length > maxBufferSize) {
         this.audioBuffer = this.audioBuffer.slice(-maxBufferSize);
       }
@@ -306,6 +406,47 @@ export class AudioCaptureService {
     return chunk;
   }
 
+  /**
+   * Convert stereo audio buffer to mono (inspired by cheating-daddy)
+   * Takes only the left channel for simplicity and efficiency
+   */
+  private convertStereoToMono(stereoBuffer: Buffer): Buffer {
+    const samples = stereoBuffer.length / 4; // 2 channels * 2 bytes per sample
+    const monoBuffer = Buffer.alloc(samples * 2); // 1 channel * 2 bytes per sample
+
+    for (let i = 0; i < samples; i++) {
+      // Read left channel sample (16-bit little endian)
+      const leftSample = stereoBuffer.readInt16LE(i * 4);
+      // Write to mono buffer
+      monoBuffer.writeInt16LE(leftSample, i * 2);
+    }
+
+    return monoBuffer;
+  }
+
+  private processTranscription(audioData: AudioData): void {
+    // Enhanced transcription processing with analysis
+    if (this.config.enableDebug && audioData.analysis) {
+      // Only process audio that's not mostly silent
+      if (audioData.analysis.silencePercentage < 80) {
+        console.log("🎤 Processing audio for transcription...");
+        console.log(`  RMS: ${audioData.analysis.rmsValue.toFixed(2)}`);
+        console.log(
+          `  Silence: ${audioData.analysis.silencePercentage.toFixed(1)}%`
+        );
+
+        // The actual transcription would be handled by the AI service
+        if (this.onTranscriptionCallback) {
+          // For now, just indicate that we're processing
+          this.onTranscriptionCallback("Processing audio...");
+        }
+      }
+    } else if (this.onTranscriptionCallback) {
+      // Fallback without analysis
+      this.onTranscriptionCallback("Transcribing audio...");
+    }
+  }
+
   private findAudioCaptureCommand(): string | null {
     const commands = ["sox", "ffmpeg"];
 
@@ -325,14 +466,26 @@ export class AudioCaptureService {
   private findFFmpeg(): string | null {
     const possiblePaths = [
       "ffmpeg",
+      "ffmpeg.exe",
       "C:\\ffmpeg\\bin\\ffmpeg.exe",
+      "C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe",
+      "C:\\Program Files (x86)\\ffmpeg\\bin\\ffmpeg.exe",
       "/usr/local/bin/ffmpeg",
       "/usr/bin/ffmpeg",
     ];
 
     for (const path of possiblePaths) {
       try {
-        if (fs.existsSync(path) || path === "ffmpeg") {
+        if (fs.existsSync(path)) {
+          console.log(`✅ Found FFmpeg at: ${path}`);
+          return path;
+        }
+
+        // Test if command is available in PATH
+        if (path === "ffmpeg" || path === "ffmpeg.exe") {
+          const { execSync } = require("child_process");
+          execSync(`where ${path}`, { stdio: "ignore" });
+          console.log(`✅ Found FFmpeg in PATH: ${path}`);
           return path;
         }
       } catch (error) {
@@ -340,6 +493,7 @@ export class AudioCaptureService {
       }
     }
 
+    console.log("❌ FFmpeg not found in any standard location");
     return null;
   }
 
@@ -352,41 +506,6 @@ export class AudioCaptureService {
 
   async cleanup(): Promise<void> {
     await this.stopCapture();
-  }
-
-  private async processTranscription(audioData: AudioData): Promise<void> {
-    try {
-      // Enhanced transcription processing
-      // In a real implementation, you would send the audio to a transcription service
-      // like Google Speech-to-Text, OpenAI Whisper, or Azure Speech Services
-
-      // For demonstration, we'll create more realistic mock transcription
-      const audioLevel = this.analyzeAudioLevel(audioData.data);
-
-      if (audioLevel > 0.1) {
-        // Only transcribe if there's significant audio
-        const mockPhrases = [
-          "Processing audio input...",
-          "Detected speech pattern",
-          "Analyzing voice data",
-          "Transcribing audio stream",
-          "Voice activity detected",
-          "Converting speech to text",
-          "Audio processing active",
-        ];
-
-        const randomPhrase =
-          mockPhrases[Math.floor(Math.random() * mockPhrases.length)];
-        const timestamp = new Date(audioData.timestamp).toLocaleTimeString();
-        const transcriptionText = `${randomPhrase} [${timestamp}]`;
-
-        if (this.onTranscriptionCallback) {
-          this.onTranscriptionCallback(transcriptionText);
-        }
-      }
-    } catch (error) {
-      console.error("Transcription processing error:", error);
-    }
   }
 
   private analyzeAudioLevel(base64Data: string): number {

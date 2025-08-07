@@ -46,6 +46,31 @@ async function createWindow() {
     getPreloadPath()
   );
 
+  // Handle media permissions for audio/video capture
+  mainWindow.webContents.session.setPermissionRequestHandler(
+    (webContents, permission, callback) => {
+      console.log("Permission requested:", permission);
+      // Grant permissions for media devices
+      if (permission === "media") {
+        callback(true);
+      } else {
+        callback(false);
+      }
+    }
+  );
+
+  // Handle media access permission checks
+  mainWindow.webContents.session.setPermissionCheckHandler(
+    (webContents, permission, requestingOrigin, details) => {
+      console.log("Permission check:", permission, "from:", requestingOrigin);
+      // Allow media permissions
+      if (permission === "media") {
+        return true;
+      }
+      return false;
+    }
+  );
+
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -172,32 +197,31 @@ ipcMain.handle("ai:sendScreenshot", async (_event, imageData) => {
 
 // Capture Service
 ipcMain.handle("capture:startAudio", async () => {
-  const result = await audioCaptureService.startCapture();
-  mainWindow?.webContents.send(
-    "log-message",
-    result.success
-      ? "Audio capture started."
-      : `Audio capture failed: ${result.error}`
+  // For Windows: Browser-based audio capture is preferred (like cheating-daddy)
+  // Only start main process audio capture if specifically requested or as fallback
+  console.log(
+    "⚠️ Main process audio capture requested - using browser-based capture instead"
   );
-  return result;
+
+  // Return success to avoid UI errors, but don't actually start main process capture
+  return { success: true, message: "Using browser-based audio capture" };
 });
 
 ipcMain.handle("capture:stopAudio", async () => {
-  const result = await audioCaptureService.stopCapture();
-  mainWindow?.webContents.send("log-message", "Audio capture stopped.");
-  return result;
+  // Browser-based audio capture handles its own stop logic
+  console.log("⚠️ Main process audio stop requested - browser handles this");
+  return { success: true, message: "Browser-based audio capture stopped" };
 });
 
 ipcMain.handle(
   "capture:enableTranscription",
   async (_event, enabled: boolean) => {
-    audioCaptureService.enableTranscription(enabled);
-    if (enabled) {
-      // Set up transcription callback to send to renderer
-      audioCaptureService.setTranscriptionCallback((text: string) => {
-        mainWindow?.webContents.send("transcription-update", text);
-      });
-    }
+    // Browser-based audio capture handles transcription through AI service directly
+    console.log(
+      `⚠️ Transcription ${
+        enabled ? "enabled" : "disabled"
+      } - handled by browser`
+    );
     return { success: true };
   }
 );

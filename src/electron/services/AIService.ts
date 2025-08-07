@@ -29,6 +29,9 @@ export class AIService {
     response: string;
     timestamp: number;
   }> = [];
+  private currentSessionId: string | null = null;
+  private currentTranscription: string = "";
+  private messageBuffer: string = "";
 
   constructor() {
     this.store = new Store();
@@ -71,9 +74,53 @@ export class AIService {
     return this.store.get("aiConfig", {}) as Partial<AIConfig>;
   }
 
+  /**
+   * Initialize new conversation session (inspired by cheating-daddy)
+   */
+  private initializeNewSession(): void {
+    this.currentSessionId = Date.now().toString();
+    this.currentTranscription = "";
+    this.conversationHistory = [];
+    console.log("New conversation session started:", this.currentSessionId);
+  }
+
+  /**
+   * Save conversation turn for context tracking (inspired by cheating-daddy)
+   */
+  private saveConversationTurn(
+    transcription: string,
+    aiResponse: string
+  ): void {
+    if (!this.currentSessionId) {
+      this.initializeNewSession();
+    }
+
+    const conversationTurn = {
+      timestamp: Date.now(),
+      text: transcription.trim(),
+      response: aiResponse.trim(),
+    };
+
+    this.conversationHistory.push(conversationTurn);
+    console.log("Saved conversation turn:", conversationTurn);
+
+    // Send to renderer for UI updates
+    const windows = BrowserWindow.getAllWindows();
+    if (windows.length > 0) {
+      windows[0].webContents.send("conversation-turn-saved", {
+        sessionId: this.currentSessionId,
+        turn: conversationTurn,
+        fullHistory: this.conversationHistory,
+      });
+    }
+  }
+
   private async initializeGemini(config: AIConfig): Promise<AIResponse> {
     try {
       console.log("Initializing Gemini Live session...");
+
+      // Initialize new conversation session
+      this.initializeNewSession();
 
       // Clean up existing session if any
       if (this.session) {
@@ -109,28 +156,78 @@ export class AIService {
               JSON.stringify(message, null, 2)
             );
             const windows = BrowserWindow.getAllWindows();
+
+            // Handle transcription input (like cheating-daddy)
+            if (message.serverContent?.inputTranscription?.text) {
+              this.currentTranscription +=
+                message.serverContent.inputTranscription.text;
+              console.log(
+                `🎤 Transcription received: "${message.serverContent.inputTranscription.text}"`
+              );
+              console.log(
+                `🎤 Full transcription so far: "${this.currentTranscription}"`
+              );
+
+              // Send transcription updates to renderer (like cheating-daddy)
+              if (windows.length > 0) {
+                windows[0].webContents.send(
+                  "transcription-update",
+                  this.currentTranscription
+                );
+              }
+            }
+
+            // Handle AI model response
             if (message.serverContent?.modelTurn?.parts) {
               for (const part of message.serverContent.modelTurn.parts) {
-                if (part.text && windows.length > 0) {
-                  console.log("Sending ai-response with text:", part.text);
-                  windows[0].webContents.send("ai-response", {
-                    success: true,
-                    text: part.text,
-                    provider: "gemini",
-                  });
+                if (part.text) {
+                  this.messageBuffer += part.text;
+                  console.log(`🤖 AI response part: "${part.text}"`);
+                  if (windows.length > 0) {
+                    console.log("Sending ai-response with text:", part.text);
+                    windows[0].webContents.send("ai-response", {
+                      success: true,
+                      text: part.text,
+                      provider: "gemini",
+                    });
+                    // Also send cumulative response like cheating-daddy
+                    windows[0].webContents.send(
+                      "update-response",
+                      this.messageBuffer
+                    );
+                  }
                 }
               }
             }
-            // Forward completion flags so renderer can finalize placeholder
-            if (windows.length > 0) {
-              if (message.serverContent?.generationComplete) {
+
+            // Handle completion (like cheating-daddy)
+            if (message.serverContent?.generationComplete) {
+              console.log(
+                `✅ Generation complete! Transcription: "${this.currentTranscription}", Response: "${this.messageBuffer}"`
+              );
+
+              // Save conversation turn when we have both transcription and AI response
+              if (this.currentTranscription && this.messageBuffer) {
+                this.saveConversationTurn(
+                  this.currentTranscription,
+                  this.messageBuffer
+                );
+                this.currentTranscription = ""; // Reset for next turn
+              }
+              this.messageBuffer = "";
+
+              if (windows.length > 0) {
                 console.log("Sending generationComplete flag");
                 windows[0].webContents.send("ai-response", {
                   serverContent: { generationComplete: true },
                 });
               }
+            }
+
+            // Forward completion flags so renderer can finalize placeholder
+            if (windows.length > 0) {
               if (message.serverContent?.turnComplete) {
-                console.log("Sending turnComplete flag");
+                console.log("🔄 Turn complete - AI is ready for next input");
                 windows[0].webContents.send("ai-response", {
                   serverContent: { turnComplete: true },
                 });
@@ -157,10 +254,21 @@ export class AIService {
         },
         config: {
           responseModalities: ["TEXT"],
-          inputAudioTranscription: {},
-          speechConfig: { languageCode: config.language || "en-US" },
+          inputAudioTranscription: {
+            // Enable transcription for audio input
+            enableAutomaticTranscription: true,
+          },
+          speechConfig: {
+            languageCode: config.language || "en-US",
+          },
           systemInstruction: {
-            parts: [{ text: config.customPrompt || this.getDefaultPrompt() }],
+            parts: [
+              {
+                text:
+                  (config.customPrompt || this.getDefaultPrompt()) +
+                  "\n\nYou will receive audio input that will be transcribed. Please respond to the transcribed speech naturally and helpfully.",
+              },
+            ],
           },
         },
       });
@@ -228,17 +336,27 @@ export class AIService {
 
     try {
       if (this.provider === "gemini") {
+        // Add debug logging to track audio processing
+        console.log(
+          `🔊 Sending audio chunk (${audioData.length} chars) to Gemini...`
+        );
+
         await this.session.sendRealtimeInput({
           audio: {
             data: audioData,
             mimeType: "audio/pcm;rate=24000",
           },
         });
+
+        // Log successful audio send
+        process.stdout.write("🎵");
+
         return { success: true };
       }
 
       return { success: false, error: "Audio only supported with Gemini Live" };
     } catch (error) {
+      console.error("❌ Error sending audio to Gemini:", error);
       return { success: false, error: (error as Error).message };
     }
   }

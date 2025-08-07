@@ -13,6 +13,7 @@ declare global {
         initialize?: (config: any) => Promise<any>;
         sendAudio?: (audioData: any) => Promise<any>;
         sendScreenshot?: (imageData: string) => Promise<any>;
+        getStoredConfig?: () => Promise<any>;
       };
       capture: {
         startAudio: () => Promise<{ success: boolean }>;

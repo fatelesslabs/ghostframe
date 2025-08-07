@@ -14,6 +14,7 @@ import { AutomationView } from "./AutomationView";
 import { SettingsView } from "./SettingsView";
 import type { AppSettings } from "./SettingsView";
 import { AssistantView } from "./AssistantView";
+import { WebAudioCapture } from "./WebAudioCapture";
 
 const App = () => {
   const [mode, setMode] = useState<"assistant" | "automation" | "settings">(
@@ -36,14 +37,23 @@ const App = () => {
   const [transcription, setTranscription] = useState("");
   const intervalRef = useRef<number | null>(null);
   const initializingRef = useRef<boolean>(false);
+  const webAudioCapture = useRef<WebAudioCapture | null>(null);
 
   useEffect(() => {
     const loadSettings = async () => {
-      // Settings are loaded differently - remove this for now since there's no get method
-      // const storedSettings = await window.ghostframe.settings.get();
-      // if (storedSettings) {
-      //   setSettings(storedSettings);
-      // }
+      try {
+        // Load stored AI configuration
+        const storedConfig = await window.ghostframe.ai.getStoredConfig?.();
+        if (storedConfig && storedConfig.apiKey) {
+          setSettings((prev) => ({
+            ...prev,
+            provider: storedConfig.provider || prev.provider,
+            apiKey: storedConfig.apiKey || prev.apiKey,
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to load stored settings:", error);
+      }
     };
 
     loadSettings();
@@ -93,6 +103,23 @@ const App = () => {
       setTranscription(text);
     };
 
+    const handleAiResponse = (_event: any, response: any) => {
+      console.log("🤖 AI Response received in UI:", response);
+      if (response.text) {
+        console.log("📝 AI Text Response:", response.text);
+        // You could display this in the UI or handle it as needed
+      }
+      if (response.serverContent?.generationComplete) {
+        console.log("✅ AI Response generation complete");
+      }
+    };
+
+    const handleUpdateResponse = (_event: any, responseText: string) => {
+      console.log("📝 Cumulative AI Response:", responseText);
+      // This is the full response text as it builds up (like cheating-daddy)
+      // You could update a state variable to show this in real-time
+    };
+
     const loadContentProtectionStatus = async () => {
       try {
         const status =
@@ -112,6 +139,8 @@ const App = () => {
         handleContentProtectionToggle
       );
       window.ghostframe.on("transcription-update", handleTranscriptionUpdate);
+      window.ghostframe.on("ai-response", handleAiResponse);
+      window.ghostframe.on("update-response", handleUpdateResponse);
     }
 
     loadContentProtectionStatus();
@@ -130,8 +159,15 @@ const App = () => {
           "transcription-update",
           handleTranscriptionUpdate
         );
+        window.ghostframe.off("ai-response", handleAiResponse);
+        window.ghostframe.off("update-response", handleUpdateResponse);
       }
       if (intervalRef.current) clearInterval(intervalRef.current);
+
+      // Clean up WebAudioCapture on unmount
+      if (webAudioCapture.current?.isActive()) {
+        webAudioCapture.current.stopCapture();
+      }
     };
   }, []);
 
@@ -183,14 +219,63 @@ const App = () => {
 
   const handleRecordToggle = async () => {
     if (isRecording) {
-      await window.ghostframe.capture?.stopAudio?.();
-      await window.ghostframe.capture?.enableTranscription?.(false);
-      stopTimer();
-      setTranscription("");
+      // Stop recording
+      try {
+        // Stop web-based audio capture if active
+        if (webAudioCapture.current?.isActive()) {
+          await webAudioCapture.current.stopCapture();
+        }
+
+        // Stop main process audio capture (fallback)
+        await window.ghostframe.capture?.stopAudio?.();
+        await window.ghostframe.capture?.enableTranscription?.(false);
+
+        stopTimer();
+        setTranscription("");
+      } catch (error) {
+        console.error("Error stopping audio capture:", error);
+      }
     } else {
-      await window.ghostframe.capture?.startAudio?.();
-      await window.ghostframe.capture?.enableTranscription?.(true);
-      startTimer();
+      // Start recording
+      try {
+        let audioStarted = false;
+
+        // Try browser-based audio capture first (loopback audio for Windows)
+        if (WebAudioCapture.isSupported()) {
+          console.log("🎤 Attempting Windows loopback audio capture...");
+          console.log("� Will request microphone access for system audio");
+
+          if (!webAudioCapture.current) {
+            webAudioCapture.current = new WebAudioCapture();
+          }
+
+          const result = await webAudioCapture.current.startCapture();
+          if (result.success) {
+            console.log("✅ Windows loopback audio capture started");
+            audioStarted = true;
+          } else {
+            console.warn(
+              "❌ Windows loopback audio capture failed:",
+              result.error
+            );
+            // Show user-friendly error in UI
+            alert(
+              `Audio Capture Failed:\n\n${result.error}\n\nFalling back to text-only mode.`
+            );
+          }
+        }
+
+        // Fallback to main process audio capture if browser method failed
+        if (!audioStarted) {
+          console.log("🔄 Falling back to main process audio capture...");
+          await window.ghostframe.capture?.startAudio?.();
+        }
+
+        await window.ghostframe.capture?.enableTranscription?.(true);
+        startTimer();
+      } catch (error) {
+        console.error("Error starting audio capture:", error);
+      }
     }
     setIsRecording(!isRecording);
   };
@@ -245,11 +330,8 @@ const App = () => {
             {/* System Controls with inline drag handle */}
             <div className="flex items-center space-x-2">
               {/* Inline drag handle */}
-              <span
-                className="drag-handle cursor-move"
-                title="Drag to move window"
-              >
-                <GripHorizontal className="w-4 h-4 text-gray-400 hover:text-gray-300 transition-colors cursor-pointer" />
+              <span className="drag-handle" title="Drag to move window">
+                <GripHorizontal className="w-4 h-4 text-gray-400 hover:text-gray-300 transition-colors" />
               </span>
               {isContentProtected && (
                 <div className="status-badge status-protected">

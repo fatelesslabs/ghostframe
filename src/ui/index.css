@@ -10,6 +10,25 @@
 }
 
 @layer components {
+  /* Animated word-by-word reveal inspired by cheating-daddy */
+  [data-word] {
+    opacity: 1; /* Make words visible by default */
+    filter: blur(0px);
+    display: inline-block;
+    transition: opacity 0.5s, filter 0.5s;
+  }
+  
+  /* Only hide words when specifically marked for animation */
+  [data-word].animate-hidden {
+    opacity: 0;
+    filter: blur(10px);
+  }
+  
+  [data-word].visible {
+    opacity: 1;
+    filter: blur(0px);
+  }
+
   /* Draggable window region - inspired by cheating-daddy */
   .app-container {
     -webkit-app-region: drag;

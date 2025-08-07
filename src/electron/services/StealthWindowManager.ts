@@ -28,6 +28,10 @@ export class StealthWindowManager {
         preload: preloadPath,
         contextIsolation: true,
         nodeIntegration: false,
+        // Enable media permissions for audio/video capture
+        webSecurity: false, // Required for getDisplayMedia in some cases
+        allowRunningInsecureContent: true,
+        experimentalFeatures: true,
       },
     });
 
