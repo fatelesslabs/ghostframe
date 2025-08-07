@@ -1,4 +1,3 @@
-// Migrated AudioCaptureService for new Electron/React setup
 import { spawn, ChildProcess } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
@@ -12,7 +11,7 @@ export interface AudioCaptureConfig {
 }
 
 export interface AudioData {
-  data: string; // base64 encoded
+  data: string;
   format: {
     sampleRate: number;
     channels: number;
@@ -31,9 +30,9 @@ export class AudioCaptureService {
   constructor() {
     this.config = {
       sampleRate: 24000,
-      channels: 1, // Mono for AI processing
+      channels: 1,
       bitDepth: 16,
-      bufferDuration: 0.1, // 100ms chunks
+      bufferDuration: 0.1,
     };
   }
 
@@ -85,7 +84,6 @@ export class AudioCaptureService {
   }
 
   private async startMacOSCapture(): Promise<void> {
-    // Use built-in macOS audio capture with sox or ffmpeg
     const captureCommand = this.findAudioCaptureCommand();
 
     if (!captureCommand) {
@@ -111,14 +109,14 @@ export class AudioCaptureService {
         this.config.sampleRate.toString(),
         "-c",
         this.config.channels.toString(),
-        "-", // Output to stdout
+        "-",
       ];
     } else if (captureCommand.includes("ffmpeg")) {
       args = [
         "-f",
         "avfoundation",
         "-i",
-        ":0", // Default audio input
+        ":0",
         "-f",
         "s16le",
         "-ar",
@@ -137,7 +135,6 @@ export class AudioCaptureService {
   }
 
   private async startWindowsCapture(): Promise<void> {
-    // Use Windows built-in tools or ffmpeg
     const ffmpegPath = this.findFFmpeg();
 
     if (!ffmpegPath) {
@@ -150,7 +147,7 @@ export class AudioCaptureService {
       "-f",
       "dshow",
       "-i",
-      'audio="Microphone"', // You might need to adjust this
+      'audio="Microphone"',
       "-f",
       "s16le",
       "-ar",
@@ -168,7 +165,6 @@ export class AudioCaptureService {
   }
 
   private async startLinuxCapture(): Promise<void> {
-    // Use ALSA or PulseAudio
     let command = "arecord";
     let args = [
       "-f",
@@ -179,16 +175,14 @@ export class AudioCaptureService {
       this.config.channels.toString(),
       "-t",
       "raw",
-      "-", // Output to stdout
+      "-",
     ];
 
-    // Try PulseAudio if arecord fails
     try {
       this.captureProcess = spawn(command, args, {
         stdio: ["ignore", "pipe", "pipe"],
       });
     } catch (error) {
-      // Fallback to parecord (PulseAudio)
       command = "parecord";
       args = [
         "--format=s16le",
@@ -215,15 +209,12 @@ export class AudioCaptureService {
     this.captureProcess.stdout.on("data", (data: Buffer) => {
       this.audioBuffer = Buffer.concat([this.audioBuffer, data]);
 
-      // Process complete chunks
       while (this.audioBuffer.length >= chunkSize) {
         const chunk = this.audioBuffer.slice(0, chunkSize);
         this.audioBuffer = this.audioBuffer.slice(chunkSize);
 
-        // Convert to mono if needed
         const processedChunk = this.processAudioChunk(chunk);
 
-        // Convert to base64 and send
         const audioData: AudioData = {
           data: processedChunk.toString("base64"),
           format: {
@@ -239,12 +230,11 @@ export class AudioCaptureService {
         }
       }
 
-      // Limit buffer size to prevent memory issues
       const maxBufferSize =
         this.config.sampleRate *
         (this.config.bitDepth / 8) *
         this.config.channels *
-        2; // 2 seconds
+        2;
       if (this.audioBuffer.length > maxBufferSize) {
         this.audioBuffer = this.audioBuffer.slice(-maxBufferSize);
       }
@@ -275,10 +265,9 @@ export class AudioCaptureService {
   }
 
   private processAudioChunk(chunk: Buffer): Buffer {
-    // If stereo, convert to mono by taking left channel
     if (this.config.channels === 2) {
-      const samples = chunk.length / 4; // 16-bit stereo = 4 bytes per sample pair
-      const monoBuffer = Buffer.alloc(samples * 2); // 16-bit mono = 2 bytes per sample
+      const samples = chunk.length / 4;
+      const monoBuffer = Buffer.alloc(samples * 2);
 
       for (let i = 0; i < samples; i++) {
         const leftSample = chunk.readInt16LE(i * 4);
@@ -300,7 +289,6 @@ export class AudioCaptureService {
         execSync(`which ${cmd}`, { stdio: "ignore" });
         return cmd;
       } catch (error) {
-        // Command not found, try next
       }
     }
 
@@ -321,7 +309,6 @@ export class AudioCaptureService {
           return path;
         }
       } catch (error) {
-        // Continue to next path
       }
     }
 

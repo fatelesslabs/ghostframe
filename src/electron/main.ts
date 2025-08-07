@@ -1,5 +1,3 @@
-//(new) main.ts
-
 import {
   app,
   BrowserWindow,
@@ -21,13 +19,9 @@ import Store from "electron-store";
 
 const store = new Store();
 
-// Keep a global reference of the window object, if you don't, the window will
-// be closed automatically when the JavaScript object is garbage collected.
-
 let mainWindow: BrowserWindow | null;
 let isClickThrough = false;
 
-// Instantiate services
 const processRandomizer = new ProcessRandomizer();
 const aiService = new AIService();
 const automationService = new BrowserAutomationService();
@@ -48,14 +42,12 @@ async function createWindow() {
     mainWindow = null;
   });
 
-  // Set initial process title for stealth
   processRandomizer.regenerateRandomNames();
 }
 
 app.on("ready", () => {
   createWindow();
 
-  // Register global shortcuts
   globalShortcut.register("CommandOrControl+Shift+C", () => {
     toggleClickThrough();
   });
@@ -74,21 +66,15 @@ app.on("activate", () => {
 });
 
 app.on("will-quit", () => {
-  // Unregister all shortcuts.
   globalShortcut.unregisterAll();
 });
 
-// --- IPC Handlers for ghostframe API ---
-
-// Helper function to toggle click-through
 const toggleClickThrough = () => {
   isClickThrough = !isClickThrough;
   mainWindow?.setIgnoreMouseEvents(isClickThrough, { forward: true });
-  // Notify the renderer process of the change
   mainWindow?.webContents.send("click-through-toggled", isClickThrough);
 };
 
-// Window Management
 ipcMain.handle("window:toggleVisibility", () => {
   if (mainWindow) {
     mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
@@ -97,7 +83,6 @@ ipcMain.handle("window:toggleVisibility", () => {
 ipcMain.handle("window:toggleClickThrough", toggleClickThrough);
 ipcMain.handle("system:quit", () => app.quit());
 
-// AI Service
 ipcMain.handle("ai:initialize", async (_event, config) => {
   const result = await aiService.initialize(config);
   mainWindow?.webContents.send(
@@ -127,7 +112,6 @@ ipcMain.handle("ai:sendScreenshot", async (_event, imageData) => {
   return await aiService.sendScreenshot(imageData);
 });
 
-// Capture Service
 ipcMain.handle("capture:startAudio", async () => {
   const result = await audioCaptureService.startCapture();
   mainWindow?.webContents.send(
@@ -165,7 +149,6 @@ ipcMain.handle("capture:stopPeriodicScreenshots", async (event) => {
   return await screenshotService.stopPeriodicCapture();
 });
 
-// Automation Service
 ipcMain.handle("automation:startSession", async (_event, config) => {
   const result = await automationService.startSession(config);
   mainWindow?.webContents.send(
@@ -189,7 +172,6 @@ ipcMain.handle("automation:executeAction", async (_event, action) => {
   );
   return result;
 });
-// Stealth/Process Randomizer/Window Mode
 ipcMain.handle("window:setMode", async (_event, mode) => {
   if (mainWindow) {
     return await stealthWindowManager.setMode(mainWindow, mode);
@@ -199,7 +181,6 @@ ipcMain.handle("window:setMode", async (_event, mode) => {
 
 ipcMain.handle("settings:save", (_event, settings) => {
   console.log("Saving settings:", settings);
-  // Here you would save the settings to a file, e.g., using electron-store
   mainWindow?.webContents.send("log-message", "Settings saved successfully!");
   return { success: true };
 });

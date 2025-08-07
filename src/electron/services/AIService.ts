@@ -1,4 +1,3 @@
-// Migrated AIService for new Electron/React setup
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
@@ -298,11 +297,9 @@ export class AIService {
   }
 
   private handleGeminiMessage(message: any): void {
-    // Handle incoming Gemini Live messages
     if (message.serverContent?.modelTurn?.parts) {
       for (const part of message.serverContent.modelTurn.parts) {
         if (part.text) {
-          // Send to renderer process
           const { BrowserWindow } = require("electron");
           const windows = BrowserWindow.getAllWindows();
           if (windows.length > 0) {
@@ -324,7 +321,6 @@ export class AIService {
       timestamp: Date.now(),
     });
 
-    // Keep only last 10 conversations to manage memory
     if (this.conversationHistory.length > 10) {
       this.conversationHistory = this.conversationHistory.slice(-10);
     }
