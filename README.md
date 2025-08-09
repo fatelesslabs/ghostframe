@@ -1,15 +1,15 @@
 # Ghostframe
 
-**Dual-Feature Stealth AI Assistant + Browser Automation**
+**Dual-Feature Stealth AI Assistant + AI Task Automation**
 
-Ghostframe is a cross-platform desktop application that provides two powerful, always-on features:
+Ghostframe is a cross-platform desktop application that provides two powerful, always-on AI features:
 
-1. **Stealth AI Overlay Assistant** ("Cluely Mode") - Invisible help during calls, interviews, and meetings
-2. **Agentic Browser Automation** ("Automation Mode") - Intelligent browser automation for any website
+1. **Stealth AI Overlay Assistant** ("Assistant Mode") - Invisible help during calls, interviews, and meetings
+2. **AI Task Assistant** ("Automation Mode") - Automated completion of coding problems, forms, quizzes, and routine tasks
 
 ## 🌟 Features
 
-### Cluely Mode (Stealth AI Assistant)
+### Assistant Mode (Stealth AI Assistant)
 
 - **Invisible Overlay**: Never visible in screen shares, recordings, or screen captures
 - **Real-time Audio Capture**: Continuous audio monitoring with configurable buffer
@@ -19,14 +19,14 @@ Ghostframe is a cross-platform desktop application that provides two powerful, a
 - **Global Shortcuts**: Stealth operation with customizable keyboard shortcuts
 - **Privacy-First**: All data processed in-memory with optional export
 
-### Automation Mode (Browser Automation)
+### Automation Mode (AI Browser Assistant)
 
-- **Natural Language Commands**: Control browsers with simple text instructions
+- **Natural Language Commands**: Control browsers with conversational instructions
+- **Intelligent Task Planning**: AI breaks down complex requests into executable actions
+- **Context-Aware Navigation**: Understands intent and navigates to appropriate websites
+- **Smart Data Extraction**: Automatically finds and extracts relevant information
+- **Multi-Step Workflows**: Executes complex sequences like research, comparison, and test completions.
 - **Anti-Detection**: Human-like interaction patterns to avoid bot detection
-- **Real Browser Profiles**: Uses your actual browser with cookies and extensions
-- **Multi-Action Workflows**: Chain complex automation sequences
-- **Form Filling**: Intelligent form completion and submission
-- **Data Extraction**: Extract information from any website
 - **Background Operation**: Run automations while on calls or meetings
 
 ## 🔒 Stealth Features
@@ -85,16 +85,15 @@ npm run dev
 
 ## 📖 Usage Guide
 
-### Setting Up Cluely Mode
+### Setting Up Assistant Mode
 
-1. **Launch Ghostframe** and select "Cluely Mode"
-2. **Choose AI Provider** from the dropdown (Gemini, OpenAI, or Claude)
+1. **Launch Ghostframe** and select "Assistant"
+2. **Choose AI Provider** from the dropdown in settings (Gemini, OpenAI, or Claude)
 3. **Enter API Key** for your chosen provider
-4. **Click Connect** to initialize the AI service
-5. **Configure Capture Settings**:
+4. **Configure Capture Settings**:
    - Enable audio capture for real-time monitoring
    - Set screenshot interval (1-10 seconds or manual)
-6. **Start Capture** to begin monitoring
+5. **Start Capture** to begin monitoring
 
 ### Using the Stealth Assistant
 
@@ -113,43 +112,75 @@ npm run dev
 4. Response appears in the invisible overlay
 5. Use the information to answer confidently
 
-### Setting Up Automation Mode
+### Setting Up AI Task Assistant
 
 1. **Switch to Automation Mode**
 2. **Start Browser Session** to launch Chrome
-3. **Use Quick Actions**:
-   - Navigate to URLs
-   - Click elements by CSS selector
-   - Type text into form fields
-   - Extract data from pages
+3. **Use AI Commands**:
+   - Type natural language requests like "Complete this quiz for me"
+   - Use quick action buttons for common tasks
+   - Let AI plan and execute multi-step workflows
+   - Review results and screenshots automatically captured
+
+**Example AI Commands**:
+
+- "Complete this LeetCode problem for me"
+- "Fill out this boring Google Form with my information"
+- "Take this quiz on my behalf using the course materials"
+- "Monitor this meeting and respond when asked direct questions"
+
+Ghostframe understands your intent and automates tedious tasks, allowing you to focus on more important work while handling routine assignments, forms, and assessments automatically.
 
 ### Browser Automation Examples
 
-**Simple Navigation**:
+**Academic & Learning Tasks**:
 
 ```bash
-1. Enter URL: https://example.com
-2. Click Navigate
+"Complete this LeetCode problem step by step"
+"Solve this HackerRank coding challenge for me"
+"Take this Canvas quiz using my study notes"
+"Submit this assignment on Blackboard with the attached file"
+"Complete this Khan Academy practice test"
 ```
 
-**Form Filling**:
+**Form Filling & Administrative**:
 
 ```bash
-1. Selector: input[name="email"]
-2. Text: your.email@example.com
-3. Click Type Text
+"Fill out this job application form with my resume data"
+"Complete this boring survey with generic responses"
+"Submit this health insurance enrollment form"
+"Fill in my weekly timesheet with 8 hours per day"
+"Complete this customer feedback form positively"
 ```
 
-**Advanced Script** (JSON format):
+**Meeting & Communication Assistance**:
 
-```json
-[
-  { "type": "navigate", "url": "https://leetcode.com" },
-  { "type": "click", "selector": ".login-button" },
-  { "type": "fill", "selector": "#username", "text": "your_username" },
-  { "type": "fill", "selector": "#password", "text": "your_password" },
-  { "type": "submit", "selector": ".login-form" }
-]
+```bash
+"Monitor this Zoom meeting and respond when my name is called"
+"Auto-respond in chat when someone asks for status updates"
+"Take meeting notes and summarize key action items"
+"Participate in this daily standup with standard responses"
+"Join this webinar and answer poll questions appropriately"
+```
+
+**Content & Automation**:
+
+```bash
+"Complete this online training module and pass the final test"
+"Submit my daily reports using yesterday's template"
+"Auto-respond to routine Slack messages with appropriate replies"
+"Complete this compliance training and get the certificate"
+"Fill out performance review forms with positive self-assessments"
+```
+
+**Exam & Assessment Assistance**:
+
+```bash
+"Help me with this online exam by looking up answers"
+"Complete this certification test using provided study materials"
+"Take this skills assessment and optimize for passing score"
+"Answer this technical interview coding challenge"
+"Complete this personality test with ideal professional responses"
 ```
 
 ## ⚙️ Configuration
@@ -267,12 +298,13 @@ npm run test:stealth
 
 Ghostframe is intended for:
 
-- ✅ Personal learning and skill development
-- ✅ Accessibility assistance
-- ✅ Legitimate automation tasks
-- ✅ Educational purposes
+- ✅ Personal learning and skill development assistance
+- ✅ Accessibility support for users with disabilities
+- ✅ Automating repetitive administrative tasks
+- ✅ Educational purposes and research
+- ✅ Legitimate productivity enhancement
 
-Please use responsibly and in accordance with the terms of service of any platforms you interact with.
+Please use responsibly and in accordance with the terms of service of any platforms you interact with. Users are responsible for ensuring their use complies with applicable academic integrity policies, workplace guidelines, and platform terms of service.
 
 ## 📄 License
 

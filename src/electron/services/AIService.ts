@@ -11,7 +11,86 @@ export interface AIConfig {
   model?: string;
   customPrompt?: string;
   language?: string;
+  profile?:
+    | "interview"
+    | "sales"
+    | "meeting"
+    | "presentation"
+    | "negotiation"
+    | "exam";
+  googleSearchEnabled?: boolean;
 }
+
+// Profile-based prompts inspired by cheating-daddy
+const profilePrompts = {
+  interview: {
+    intro: `You are an AI-powered interview assistant, designed to act as a discreet on-screen teleprompter. Your mission is to help the user excel in their job interview by providing concise, impactful, and ready-to-speak answers or key talking points. Analyze the ongoing interview dialogue and, crucially, the 'User-provided context' below.`,
+    formatRequirements: `**RESPONSE FORMAT REQUIREMENTS:**
+- Keep responses SHORT and CONCISE (1-3 sentences max)
+- Use **markdown formatting** for better readability
+- Use **bold** for key points and emphasis
+- Use bullet points (-) for lists when appropriate
+- Focus on the most essential information only`,
+    content: `Focus on delivering the most essential information the user needs. Your suggestions should be direct and immediately usable.`,
+    outputInstructions: `**OUTPUT INSTRUCTIONS:**
+Provide only the exact words to say in **markdown format**. No coaching, no "you should" statements, no explanations - just the direct response the candidate can speak immediately. Keep it **short and impactful**.`,
+  },
+  sales: {
+    intro: `You are a sales call assistant. Your job is to provide the exact words the salesperson should say to prospects during sales calls. Give direct, ready-to-speak responses that are persuasive and professional.`,
+    formatRequirements: `**RESPONSE FORMAT REQUIREMENTS:**
+- Keep responses SHORT and CONCISE (1-3 sentences max)
+- Use **markdown formatting** for better readability
+- Use **bold** for key points and emphasis
+- Focus on the most essential information only`,
+    content: `Focus on value propositions, addressing objections, and closing techniques.`,
+    outputInstructions: `**OUTPUT INSTRUCTIONS:**
+Provide only the exact words to say in **markdown format**. Be persuasive but not pushy. Focus on value and addressing objections directly. Keep responses **short and impactful**.`,
+  },
+  meeting: {
+    intro: `You are a meeting assistant. Your job is to provide the exact words to say during professional meetings, presentations, and discussions. Give direct, ready-to-speak responses that are clear and professional.`,
+    formatRequirements: `**RESPONSE FORMAT REQUIREMENTS:**
+- Keep responses SHORT and CONCISE (1-3 sentences max)
+- Use **markdown formatting** for better readability
+- Use **bold** for key points and emphasis
+- Focus on the most essential information only`,
+    content: `Focus on clear communication, action items, and professional responses.`,
+    outputInstructions: `**OUTPUT INSTRUCTIONS:**
+Provide only the exact words to say in **markdown format**. Be clear, concise, and action-oriented in your responses. Keep it **short and impactful**.`,
+  },
+  presentation: {
+    intro: `You are a presentation coach. Your job is to provide the exact words the presenter should say during presentations, pitches, and public speaking events. Give direct, ready-to-speak responses that are engaging and confident.`,
+    formatRequirements: `**RESPONSE FORMAT REQUIREMENTS:**
+- Keep responses SHORT and CONCISE (1-3 sentences max)
+- Use **markdown formatting** for better readability
+- Use **bold** for key points and emphasis
+- Focus on the most essential information only`,
+    content: `Focus on engaging delivery, clear explanations, and confident responses to questions.`,
+    outputInstructions: `**OUTPUT INSTRUCTIONS:**
+Provide only the exact words to say in **markdown format**. Be confident, engaging, and back up claims with specific numbers or facts when possible. Keep responses **short and impactful**.`,
+  },
+  negotiation: {
+    intro: `You are a negotiation assistant. Your job is to provide the exact words to say during business negotiations, contract discussions, and deal-making conversations. Give direct, ready-to-speak responses that are strategic and professional.`,
+    formatRequirements: `**RESPONSE FORMAT REQUIREMENTS:**
+- Keep responses SHORT and CONCISE (1-3 sentences max)
+- Use **markdown formatting** for better readability
+- Use **bold** for key points and emphasis
+- Focus on the most essential information only`,
+    content: `Focus on finding win-win solutions, addressing concerns, and strategic positioning.`,
+    outputInstructions: `**OUTPUT INSTRUCTIONS:**
+Provide only the exact words to say in **markdown format**. Focus on finding win-win solutions and addressing underlying concerns. Keep responses **short and impactful**.`,
+  },
+  exam: {
+    intro: `You are an exam assistant designed to help students pass tests efficiently. Your role is to provide direct, accurate answers to exam questions with minimal explanation - just enough to confirm the answer is correct.`,
+    formatRequirements: `**RESPONSE FORMAT REQUIREMENTS:**
+- Keep responses SHORT and CONCISE (1-2 sentences max)
+- Use **markdown formatting** for better readability
+- Use **bold** for the answer choice/result
+- Focus on the most essential information only`,
+    content: `Focus on providing efficient exam assistance that helps students pass tests quickly.`,
+    outputInstructions: `**OUTPUT INSTRUCTIONS:**
+Provide direct exam answers in **markdown format**. Include the question text, the correct answer choice, and a brief justification. Focus on efficiency and accuracy. Keep responses **short and to the point**.`,
+  },
+};
 
 export interface AIResponse {
   success: boolean;
@@ -33,14 +112,150 @@ export class AIService {
   private currentTranscription: string = "";
   private messageBuffer: string = "";
 
+  // Enhanced session management inspired by cheating-daddy
+  private isInitializingSession = false;
+  private reconnectionAttempts = 0;
+  private maxReconnectionAttempts = 3;
+  private reconnectionDelay = 2000;
+  private lastSessionParams: AIConfig | null = null;
+
   constructor() {
     this.store = new Store();
+  }
+
+  /**
+   * Build system prompt based on profile (inspired by cheating-daddy)
+   */
+  private buildSystemPrompt(config: AIConfig): string {
+    const profile = config.profile || "interview";
+    const promptParts = profilePrompts[profile] || profilePrompts.interview;
+    const customPrompt = config.customPrompt || "";
+
+    const sections = [
+      promptParts.intro,
+      "\n\n",
+      promptParts.formatRequirements,
+      "\n\n",
+      promptParts.content,
+      "\n\nUser-provided context\n-----\n",
+      customPrompt,
+      "\n-----\n\n",
+      promptParts.outputInstructions,
+    ];
+
+    return sections.join("");
+  }
+
+  /**
+   * Get enabled tools for Gemini (inspired by cheating-daddy)
+   */
+  private async getEnabledTools(config: AIConfig): Promise<any[]> {
+    const tools = [];
+
+    if (config.googleSearchEnabled !== false) {
+      tools.push({ googleSearch: {} });
+      console.log("Added Google Search tool");
+    }
+
+    return tools;
+  }
+
+  /**
+   * Send reconnection context (inspired by cheating-daddy)
+   */
+  private async sendReconnectionContext(): Promise<void> {
+    if (!this.session || this.conversationHistory.length === 0) {
+      return;
+    }
+
+    try {
+      const transcriptions = this.conversationHistory
+        .map((turn) => turn.text)
+        .filter((text) => text && text.trim().length > 0);
+
+      if (transcriptions.length === 0) {
+        return;
+      }
+
+      // Use cheating-daddy's more effective context message format
+      const contextMessage = `Till now all these questions were asked in the interview, answer the last one please:\n\n${transcriptions.join(
+        "\n"
+      )}`;
+      console.log(
+        "Sending reconnection context with",
+        transcriptions.length,
+        "previous questions"
+      );
+
+      await this.session.sendRealtimeInput({
+        text: contextMessage,
+      });
+    } catch (error) {
+      console.error("Error sending reconnection context:", error);
+    }
+  }
+
+  /**
+   * Attempt automatic reconnection (inspired by cheating-daddy)
+   */
+  private async attemptReconnection(): Promise<boolean> {
+    if (
+      !this.lastSessionParams ||
+      this.reconnectionAttempts >= this.maxReconnectionAttempts
+    ) {
+      console.log(
+        "Max reconnection attempts reached or no session params stored"
+      );
+      const windows = BrowserWindow.getAllWindows();
+      if (windows.length > 0) {
+        windows[0].webContents.send("ai-status", { status: "closed" });
+      }
+      return false;
+    }
+
+    this.reconnectionAttempts++;
+    console.log(
+      `Attempting reconnection ${this.reconnectionAttempts}/${this.maxReconnectionAttempts}...`
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, this.reconnectionDelay));
+
+    try {
+      const response = await this.initialize(this.lastSessionParams);
+      if (response.success) {
+        this.reconnectionAttempts = 0;
+        console.log("Live session reconnected");
+        await this.sendReconnectionContext();
+        return true;
+      }
+    } catch (error) {
+      console.error(
+        `Reconnection attempt ${this.reconnectionAttempts} failed:`,
+        error
+      );
+    }
+
+    if (this.reconnectionAttempts < this.maxReconnectionAttempts) {
+      return this.attemptReconnection();
+    } else {
+      console.log("All reconnection attempts failed");
+      const windows = BrowserWindow.getAllWindows();
+      if (windows.length > 0) {
+        windows[0].webContents.send("ai-status", { status: "closed" });
+      }
+      return false;
+    }
   }
 
   async initialize(config: AIConfig): Promise<AIResponse> {
     try {
       console.log("Initializing AI with config:", config);
       this.provider = config.provider;
+
+      // Store params for potential reconnection
+      this.lastSessionParams = config;
+      this.reconnectionAttempts = 0;
+
       let response: AIResponse;
       switch (config.provider) {
         case "gemini":
@@ -60,6 +275,8 @@ export class AIService {
         this.store.set("aiConfig", {
           provider: config.provider,
           apiKey: config.apiKey,
+          profile: config.profile,
+          googleSearchEnabled: config.googleSearchEnabled,
         });
       }
       console.log("AI initialization result:", response);
@@ -72,6 +289,23 @@ export class AIService {
 
   getStoredConfig(): Partial<AIConfig> {
     return this.store.get("aiConfig", {}) as Partial<AIConfig>;
+  }
+
+  /**
+   * Get current session data (inspired by cheating-daddy)
+   */
+  getCurrentSessionData(): { sessionId: string | null; history: Array<any> } {
+    return {
+      sessionId: this.currentSessionId,
+      history: this.conversationHistory,
+    };
+  }
+
+  /**
+   * Start new session (inspired by cheating-daddy)
+   */
+  startNewSession(): void {
+    this.initializeNewSession();
   }
 
   /**
@@ -119,6 +353,18 @@ export class AIService {
     try {
       console.log("Initializing Gemini Live session...");
 
+      // Prevent concurrent initializations
+      if (this.isInitializingSession) {
+        console.log("Session initialization already in progress");
+        return { success: false, error: "Session initialization in progress" };
+      }
+
+      this.isInitializingSession = true;
+      const windows = BrowserWindow.getAllWindows();
+      if (windows.length > 0) {
+        windows[0].webContents.send("ai-status", { status: "initializing" });
+      }
+
       // Initialize new conversation session
       this.initializeNewSession();
 
@@ -136,6 +382,10 @@ export class AIService {
       }
 
       this.client = new GoogleGenAI({ apiKey: config.apiKey });
+
+      // Get enabled tools and build system prompt
+      const enabledTools = await this.getEnabledTools(config);
+      const systemPrompt = this.buildSystemPrompt(config);
 
       this.session = await this.client.live.connect({
         model: "gemini-live-2.5-flash-preview",
@@ -236,6 +486,28 @@ export class AIService {
           },
           onerror: (error: Error) => {
             console.error("Gemini Live session error:", error);
+
+            // Check for API key errors
+            const isApiKeyError =
+              error.message &&
+              (error.message.includes("API key not valid") ||
+                error.message.includes("invalid API key") ||
+                error.message.includes("authentication failed") ||
+                error.message.includes("unauthorized"));
+
+            if (isApiKeyError) {
+              console.error("Invalid API key detected");
+              const windows = BrowserWindow.getAllWindows();
+              if (windows.length > 0) {
+                windows[0].webContents.send("ai-response", {
+                  success: false,
+                  error:
+                    "Invalid API key. Please check your Gemini API key in settings.",
+                });
+              }
+              return;
+            }
+
             const windows = BrowserWindow.getAllWindows();
             if (windows.length > 0) {
               windows[0].webContents.send("ai-response", {
@@ -246,37 +518,70 @@ export class AIService {
           },
           onclose: (reason: any) => {
             console.log("Gemini Live session closed. Reason:", reason);
-            const windows = BrowserWindow.getAllWindows();
-            if (windows.length > 0) {
-              windows[0].webContents.send("ai-status", { status: "closed" });
+
+            // Check for API key errors in close reason
+            const isApiKeyError =
+              reason &&
+              (reason.includes("API key not valid") ||
+                reason.includes("invalid API key") ||
+                reason.includes("authentication failed") ||
+                reason.includes("unauthorized"));
+
+            if (isApiKeyError) {
+              console.error("Session closed due to invalid API key");
+              const windows = BrowserWindow.getAllWindows();
+              if (windows.length > 0) {
+                windows[0].webContents.send("ai-status", {
+                  status: "error",
+                  error: "Invalid API key",
+                });
+              }
+              return;
+            }
+
+            // Attempt automatic reconnection for server-side closures
+            if (
+              this.lastSessionParams &&
+              this.reconnectionAttempts < this.maxReconnectionAttempts
+            ) {
+              console.log("Attempting automatic reconnection...");
+              this.attemptReconnection();
+            } else {
+              const windows = BrowserWindow.getAllWindows();
+              if (windows.length > 0) {
+                windows[0].webContents.send("ai-status", { status: "closed" });
+              }
             }
           },
         },
         config: {
           responseModalities: ["TEXT"],
+          tools: enabledTools,
           inputAudioTranscription: {
-            // Enable transcription for audio input
             enableAutomaticTranscription: true,
           },
+          contextWindowCompression: { slidingWindow: {} },
           speechConfig: {
             languageCode: config.language || "en-US",
           },
           systemInstruction: {
-            parts: [
-              {
-                text:
-                  (config.customPrompt || this.getDefaultPrompt()) +
-                  "\n\nYou will receive audio input that will be transcribed. Please respond to the transcribed speech naturally and helpfully.",
-              },
-            ],
+            parts: [{ text: systemPrompt }],
           },
         },
       });
 
+      this.isInitializingSession = false;
       console.log("Gemini Live session initialized successfully.");
       return { success: true };
     } catch (error) {
+      this.isInitializingSession = false;
       console.error("Error initializing Gemini Live:", error);
+
+      const windows = BrowserWindow.getAllWindows();
+      if (windows.length > 0) {
+        windows[0].webContents.send("ai-status", { status: "error" });
+      }
+
       return { success: false, error: (error as Error).message };
     }
   }
@@ -525,15 +830,13 @@ export class AIService {
   }
 
   private getDefaultPrompt(): string {
-    return `You are a helpful AI assistant integrated into Ghostframe, a stealth application. Your role is to:
-
-1. Provide instant, accurate answers to questions during interviews, calls, or meetings
-2. Analyze screenshots and provide contextual assistance
-3. Help with coding problems, technical questions, and general knowledge
-4. Be concise but thorough in your responses
-5. Maintain a professional and helpful tone
-
-Always prioritize accuracy and relevance. When analyzing screenshots, focus on text, code, questions, or any actionable content visible in the image.`;
+    return this.buildSystemPrompt({
+      provider: "gemini",
+      apiKey: "",
+      profile: "interview",
+      customPrompt:
+        "You are a helpful AI assistant integrated into Ghostframe, a stealth application. Your role is to provide instant, accurate answers to questions during interviews, calls, or meetings. Analyze screenshots and provide contextual assistance. Help with coding problems, technical questions, and general knowledge. Be concise but thorough in your responses. Maintain a professional and helpful tone. Always prioritize accuracy and relevance.",
+    });
   }
 
   async cleanup(): Promise<void> {

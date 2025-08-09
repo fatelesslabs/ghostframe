@@ -3,9 +3,16 @@ import { ipcMain, BrowserWindow } from "electron";
 export interface AppSettings {
   provider: "gemini" | "openai" | "claude";
   apiKey: string;
-  screenshotInterval: number;
   customInstructions: string;
   profileType: "default" | "custom";
+  profile?:
+    | "interview"
+    | "sales"
+    | "meeting"
+    | "presentation"
+    | "negotiation"
+    | "exam";
+  googleSearchEnabled?: boolean;
 }
 
 export class SettingsService {
@@ -46,8 +53,8 @@ export class SettingsService {
       await windows[0].webContents.executeJavaScript(`
         try {
           localStorage.setItem('app-settings', JSON.stringify(${JSON.stringify(
-        settings
-      )}));
+            settings
+          )}));
         } catch (e) {
           console.error('Error saving settings to localStorage:', e);
         }

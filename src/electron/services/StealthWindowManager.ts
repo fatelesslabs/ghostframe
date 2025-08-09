@@ -24,10 +24,13 @@ export class StealthWindowManager {
       frame: false,
       alwaysOnTop: true,
       skipTaskbar: true,
+      backgroundColor: "#00000000", // Fully transparent background
+      hasShadow: false,
       webPreferences: {
         preload: preloadPath,
         contextIsolation: true,
         nodeIntegration: false,
+        backgroundThrottling: false,
         // Enable media permissions for audio/video capture
         webSecurity: false, // Required for getDisplayMedia in some cases
         allowRunningInsecureContent: true,
@@ -45,6 +48,14 @@ export class StealthWindowManager {
     // Set up the toggle hotkey
     this.setupDefaultHotkeys(window);
 
+    // Ensure no title is ever set
+    window.setTitle("");
+
+    // Prevent title changes
+    window.on("page-title-updated", (e: any) => {
+      e.preventDefault();
+    });
+
     console.log("Window created and should be visible at center of screen");
 
     return window;
@@ -58,7 +69,7 @@ export class StealthWindowManager {
       // @ts-ignore
       window.setHiddenInMissionControl(true);
     }
-    window.setContentProtection(true);
+    // Content protection is controlled separately via toggleContentProtection()
     console.log("Stealth measures applied");
   }
 
@@ -254,10 +265,10 @@ export class StealthWindowManager {
     try {
       if (window.isVisible()) {
         window.hide();
-        this.applyStealthMeasures(window);
+        // Only hide the window, don't apply stealth measures like content protection
       } else {
-        this.removeStealthMeasures(window);
         window.showInactive();
+        // Only show the window, don't modify stealth measures
       }
       return { success: true };
     } catch (error) {
@@ -446,10 +457,10 @@ export class StealthWindowManager {
       const toggleHandler = () => {
         if (window.isVisible()) {
           window.hide();
-          this.applyStealthMeasures(window);
+          // Only hide the window, don't apply stealth measures like content protection
         } else {
-          this.removeStealthMeasures(window);
           window.showInactive();
+          // Only show the window, don't modify stealth measures
         }
       };
       globalShortcut.register("CommandOrControl+\\", toggleHandler);

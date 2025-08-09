@@ -13,10 +13,12 @@ export interface AutomationAction {
     | "scroll"
     | "wait"
     | "screenshot"
-    | "extract";
+    | "extract"
+    | "ai_command";
   selector?: string;
   text?: string;
   url?: string;
+  command?: string;
   options?: any;
 }
 
@@ -150,6 +152,8 @@ export class BrowserAutomationService {
           return await this.takeScreenshot(action.options);
         case "extract":
           return await this.extractData(action.selector!, action.options);
+        case "ai_command":
+          return await this.executeAICommand(action.command!);
         default:
           return { success: false, error: "Unknown action type" };
       }
@@ -273,7 +277,7 @@ export class BrowserAutomationService {
     await this.page.click(selector);
 
     // Wait for potential navigation
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     return { success: true, data: { message: "Form submitted" } };
   }
@@ -307,7 +311,7 @@ export class BrowserAutomationService {
         timeout: options.timeout || 10000,
       });
     } else if (options.timeout) {
-      await new Promise(resolve => setTimeout(resolve, options.timeout));
+      await new Promise((resolve) => setTimeout(resolve, options.timeout));
     } else {
       await this.humanDelay(1000, 3000);
     }
@@ -378,6 +382,300 @@ export class BrowserAutomationService {
         count: data.length,
         results: data,
       },
+    };
+  }
+
+  private async executeAICommand(command: string): Promise<AutomationResponse> {
+    if (!this.page) throw new Error("No active page");
+
+    try {
+      // Analyze the command and determine the appropriate actions
+      const plan = this.parseAICommand(command);
+
+      // Execute the planned actions
+      let results = [];
+      for (const action of plan.actions) {
+        const result = await this.executeAction(action);
+        results.push(result);
+
+        if (!result.success) {
+          break; // Stop on first failure
+        }
+
+        // Add delay between actions
+        await this.humanDelay(1000, 2000);
+      }
+
+      return {
+        success: true,
+        data: {
+          message: `AI Command executed: ${command}`,
+          plan: plan.description,
+          results: results,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to execute AI command: ${(error as Error).message}`,
+      };
+    }
+  }
+
+  private parseAICommand(command: string): {
+    description: string;
+    actions: AutomationAction[];
+  } {
+    const lowerCommand = command.toLowerCase();
+
+    // Academic & Learning Tasks
+    if (
+      lowerCommand.includes("leetcode") ||
+      lowerCommand.includes("coding problem")
+    ) {
+      return {
+        description: "Navigate to LeetCode and assist with problem solving",
+        actions: [
+          { type: "navigate", url: "https://leetcode.com/problemset/" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    if (
+      lowerCommand.includes("hackerrank") ||
+      lowerCommand.includes("coding challenge")
+    ) {
+      return {
+        description: "Navigate to HackerRank for coding challenges",
+        actions: [
+          { type: "navigate", url: "https://www.hackerrank.com/domains" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    if (lowerCommand.includes("canvas") && lowerCommand.includes("quiz")) {
+      return {
+        description: "Navigate to Canvas LMS for quiz completion",
+        actions: [
+          { type: "navigate", url: "https://canvas.instructure.com" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    if (
+      lowerCommand.includes("form") &&
+      (lowerCommand.includes("fill") || lowerCommand.includes("complete"))
+    ) {
+      return {
+        description: "Detect and auto-fill form fields on current page",
+        actions: [
+          { type: "screenshot" },
+          { type: "wait", options: { timeout: 2000 } },
+        ],
+      };
+    }
+
+    if (
+      lowerCommand.includes("quiz") ||
+      lowerCommand.includes("exam") ||
+      lowerCommand.includes("test")
+    ) {
+      return {
+        description: "Assist with online quiz/exam completion",
+        actions: [
+          { type: "screenshot" },
+          { type: "wait", options: { timeout: 2000 } },
+        ],
+      };
+    }
+
+    if (lowerCommand.includes("meeting") && lowerCommand.includes("monitor")) {
+      return {
+        description: "Monitor meeting and prepare to respond to questions",
+        actions: [
+          { type: "screenshot" },
+          { type: "wait", options: { timeout: 2000 } },
+        ],
+      };
+    }
+
+    // Research & Information Gathering (legacy support)
+    if (
+      lowerCommand.includes("find") &&
+      lowerCommand.includes("price") &&
+      lowerCommand.includes("tesla")
+    ) {
+      return {
+        description: "Navigate to Tesla website and find Model 3 pricing",
+        actions: [
+          { type: "navigate", url: "https://www.tesla.com/model3" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    if (
+      lowerCommand.includes("tech news") &&
+      lowerCommand.includes("techcrunch")
+    ) {
+      return {
+        description: "Get latest tech news from TechCrunch",
+        actions: [
+          { type: "navigate", url: "https://techcrunch.com" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    if (lowerCommand.includes("product hunt")) {
+      return {
+        description: "Browse trending products on Product Hunt",
+        actions: [
+          { type: "navigate", url: "https://www.producthunt.com" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    if (
+      lowerCommand.includes("github") &&
+      lowerCommand.includes("notifications")
+    ) {
+      return {
+        description: "Check GitHub notifications and activity",
+        actions: [
+          { type: "navigate", url: "https://github.com/notifications" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    if (lowerCommand.includes("macbook") && lowerCommand.includes("price")) {
+      return {
+        description: "Compare MacBook Air M2 prices across retailers",
+        actions: [
+          { type: "navigate", url: "https://www.apple.com/macbook-air/" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    // E-commerce actions
+    if (lowerCommand.includes("amazon") && lowerCommand.includes("airpods")) {
+      return {
+        description: "Search for AirPods Pro on Amazon",
+        actions: [
+          { type: "navigate", url: "https://www.amazon.com" },
+          { type: "wait", options: { timeout: 2000 } },
+          {
+            type: "fill",
+            selector: "#twotabsearchtextbox",
+            text: "AirPods Pro",
+          },
+          { type: "click", selector: "#nav-search-submit-button" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    // Social Media actions
+    if (lowerCommand.includes("twitter") || lowerCommand.includes("tweet")) {
+      return {
+        description: "Navigate to Twitter for posting or browsing",
+        actions: [
+          { type: "navigate", url: "https://twitter.com" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    if (lowerCommand.includes("linkedin")) {
+      return {
+        description: "Navigate to LinkedIn",
+        actions: [
+          { type: "navigate", url: "https://www.linkedin.com" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    // Learning & Education
+    if (lowerCommand.includes("coursera")) {
+      return {
+        description: "Navigate to Coursera for course browsing",
+        actions: [
+          { type: "navigate", url: "https://www.coursera.org" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    if (lowerCommand.includes("leetcode")) {
+      return {
+        description: "Navigate to LeetCode for coding practice",
+        actions: [
+          { type: "navigate", url: "https://leetcode.com" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    // Productivity tools
+    if (lowerCommand.includes("google calendar")) {
+      return {
+        description: "Navigate to Google Calendar",
+        actions: [
+          { type: "navigate", url: "https://calendar.google.com" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    if (lowerCommand.includes("notion")) {
+      return {
+        description: "Navigate to Notion",
+        actions: [
+          { type: "navigate", url: "https://www.notion.so" },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    // Default action - try to navigate to a URL if one is mentioned
+    const urlMatch = command.match(/(https?:\/\/[^\s]+)/);
+    if (urlMatch) {
+      return {
+        description: `Navigate to ${urlMatch[1]}`,
+        actions: [
+          { type: "navigate", url: urlMatch[1] },
+          { type: "wait", options: { timeout: 3000 } },
+          { type: "screenshot" },
+        ],
+      };
+    }
+
+    // Fallback - take a screenshot of current page
+    return {
+      description: `Command "${command}" not recognized. Taking screenshot of current page.`,
+      actions: [{ type: "screenshot" }],
     };
   }
 

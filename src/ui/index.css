@@ -1,273 +1,286 @@
 @import "tailwindcss";
 
-
-@layer base {
-  body {
-    @apply bg-transparent;
-    color: #e5e7eb; /* Better default text color - light gray */
-    font-weight: 500; /* Make text slightly bolder by default */
-  }
+/* Base styles for dark transparent Electron app */
+body {
+  background: transparent;
+  color: #e5e7eb;
+  font-weight: 500;
 }
 
-@layer components {
-  /* Animated word-by-word reveal inspired by cheating-daddy */
-  [data-word] {
-    opacity: 1; /* Make words visible by default */
-    filter: blur(0px);
-    display: inline-block;
-    transition: opacity 0.5s, filter 0.5s;
-  }
-  
-  /* Only hide words when specifically marked for animation */
-  [data-word].animate-hidden {
-    opacity: 0;
-    filter: blur(10px);
-  }
-  
-  [data-word].visible {
-    opacity: 1;
-    filter: blur(0px);
-  }
+/* Essential Electron window controls */
+.app-container {
+  -webkit-app-region: drag;
+  cursor: default;
+  user-select: none;
+}
 
-  /* Draggable window region - inspired by cheating-daddy */
-  .app-container {
-    -webkit-app-region: drag;
-    cursor: default;
-    user-select: none;
-    color: #d1d5db; /* Gray-300 for better contrast */
-    font-weight: 600; /* Bold text for better readability */
-  }
+/* Make interactive elements non-draggable */
+button, input, textarea, select, a, [role="button"] {
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+}
 
-  /* Interactive elements should not be draggable */
-  button, input, textarea, select, a {
-    -webkit-app-region: no-drag;
-    cursor: pointer;
-  }
+/* Content areas should allow interaction */
+.content-area, .assistant-controls, .automation-controls {
+  -webkit-app-region: no-drag;
+}
 
-  /* Inline drag handle */
-  .drag-handle {
-    -webkit-app-region: drag;
-    cursor: move;
-    padding: 4px;
-    border-radius: 4px;
-    transition: background-color 0.2s ease;
-  }
+/* Drag handle styling */
+.drag-handle {
+  -webkit-app-region: drag;
+  cursor: move;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
 
-  .drag-handle:hover {
-    background: rgba(255, 255, 255, 0.05);
-  }
+.drag-handle:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
 
-  /* Specific areas that should allow interaction */
-  .content-area, .assistant-controls, .automation-controls {
-    -webkit-app-region: no-drag;
-  }
+/* Timer display for recording */
+.timer-display {
+  font-size: 1.5rem;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.05em;
+  text-align: center;
+}
 
-  /* Fallback drag handle - for manual dragging if CSS dragging fails */
-  .fallback-drag-handle {
-    @apply select-none cursor-grab;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-    -webkit-user-drag: none;
-    -webkit-app-region: no-drag;
-  }
+/* Custom scrollbar styling - inspired by cheating-daddy */
+/* Remove scrollbar from body and main containers */
+body, .app-container {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
 
-  .fallback-drag-handle:active {
-    @apply cursor-grabbing;
-  }
+body::-webkit-scrollbar, .app-container::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
 
-  .input-field {
-    @apply bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white/90 placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all duration-200;
-    -webkit-app-region: no-drag;
-  }
+/* Content-specific scrollbars - 6px width like cheating-daddy */
+.conversation-container::-webkit-scrollbar,
+.messages-container::-webkit-scrollbar,
+textarea::-webkit-scrollbar {
+  width: 6px;
+}
 
-  .btn-primary {
-    @apply bg-blue-500/80 hover:bg-blue-600/90 text-white font-bold py-2 px-4 rounded-lg transition-all duration-300 shadow-lg backdrop-blur-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed;
-    -webkit-app-region: no-drag;
-  }
+.conversation-container::-webkit-scrollbar-track,
+.messages-container::-webkit-scrollbar-track,
+textarea::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
 
-  .btn-secondary {
-    @apply bg-white/10 hover:bg-white/20 text-white/80 py-2 px-4 rounded-lg transition-all duration-200 backdrop-blur-sm border border-transparent flex items-center justify-center;
-    -webkit-app-region: no-drag;
-  }
+.conversation-container::-webkit-scrollbar-thumb,
+.messages-container::-webkit-scrollbar-thumb,
+textarea::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
 
-  .btn-icon {
-    @apply text-white/70 hover:text-white transition-all duration-200;
-    -webkit-app-region: no-drag;
-  }
+.conversation-container::-webkit-scrollbar-thumb:hover,
+.messages-container::-webkit-scrollbar-thumb:hover,
+textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
 
-  .btn-mode {
-    @apply px-4 py-2 rounded-lg text-sm flex items-center space-x-2 transition-all duration-200;
-    -webkit-app-region: no-drag;
-  }
+/* Firefox scrollbar styling */
+.conversation-container,
+.messages-container,
+textarea {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.2);
+}
+body, html {
+  overflow: hidden;
+}
 
-  .btn-mode-active-blue {
-    @apply bg-blue-500/30 text-blue-300 backdrop-blur-sm;
-    font-weight: 700; /* Extra bold for active states */
-    color: #93c5fd; /* Blue-300 for better visibility */
-  }
+/* Apply scrollbar only to specific content areas */
+.prose, 
+.overflow-y-auto,
+[class*="overflow-y-auto"] {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
 
-  .btn-mode-active-purple {
-    @apply bg-purple-500/30 text-purple-300 backdrop-blur-sm;
-    font-weight: 700;
-    color: #c4b5fd; /* Purple-300 for better visibility */
-  }
+.prose::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar,
+[class*="overflow-y-auto"]::-webkit-scrollbar {
+  width: 6px;
+}
 
-  .btn-mode-inactive {
-    @apply text-white/60 hover:bg-white/10 hover:text-white;
-    font-weight: 600; /* Bold inactive text */
-    color: #9ca3af; /* Gray-400 for better contrast */
-  }
+.prose::-webkit-scrollbar-track,
+.overflow-y-auto::-webkit-scrollbar-track,
+[class*="overflow-y-auto"]::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 0;
+  margin: 0;
+}
 
-  /* New Cluely-inspired styles */
-  .header-container {
-    @apply space-y-3 mb-4;
-  }
+.prose::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb,
+[class*="overflow-y-auto"]::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  border: none;
+  transition: background 0.2s ease;
+}
 
-  .status-row {
-    @apply flex items-center justify-between;
-  }
+.prose::-webkit-scrollbar-thumb:hover,
+.overflow-y-auto::-webkit-scrollbar-thumb:hover,
+[class*="overflow-y-auto"]::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
 
-  .status-badge {
-    @apply px-2 py-1 rounded-md text-xs font-medium flex items-center space-x-1.5;
-  }
+.prose::-webkit-scrollbar-corner,
+.overflow-y-auto::-webkit-scrollbar-corner,
+[class*="overflow-y-auto"]::-webkit-scrollbar-corner {
+  background: transparent;
+}
 
-  .status-protected {
-    @apply bg-red-500/15 text-red-300 border border-red-400/30;
-  }
+/* Improve tooltip spacing and reduce congestion */
+[data-radix-tooltip-content] {
+  z-index: 9999;
+  animation-duration: 200ms;
+  animation-timing-function: ease-out;
+}
 
-  .protection-toggle {
-    @apply p-2 rounded-lg transition-all duration-200 border;
-  }
+/* Better spacing for hoverable elements */
+.action-buttons {
+  gap: 0.75rem;
+}
 
-  .protection-active {
-    @apply bg-red-500/20 border-red-400/50 text-red-300 hover:bg-red-500/30;
-  }
+.header-container {
+  margin-bottom: 1.5rem;
+}
 
-  .protection-inactive {
-    @apply bg-white/5 border-white/20 text-white/60 hover:bg-white/10 hover:text-white/80;
-  }
+/* Enhanced markdown prose styling */
+.prose {
+  max-width: none;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.6;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  width: 100%;
+}
 
-  .settings-btn {
-    @apply p-2 rounded-lg bg-white/5 border border-white/20 text-white/60 hover:bg-white/10 hover:text-white/80 transition-all duration-200;
-  }
+.prose * {
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
 
-  .nav-container {
-    @apply flex items-center justify-between;
-  }
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  color: rgba(255, 255, 255, 0.95);
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  font-weight: 600;
+}
 
-  .mode-selector {
-    @apply flex items-center space-x-1 p-1 bg-white/5 rounded-lg border border-white/10;
-  }
+.prose h1 { font-size: 1.5em; }
+.prose h2 { font-size: 1.3em; }
+.prose h3 { font-size: 1.15em; }
 
-  .mode-btn {
-    @apply px-3 py-2 rounded-md text-sm font-medium flex items-center space-x-2 transition-all duration-200;
-  }
+.prose p {
+  margin-bottom: 1em;
+  color: rgba(255, 255, 255, 0.85);
+}
 
-  .mode-active {
-    @apply bg-blue-500/30 text-blue-300;
-  }
+.prose ul, .prose ol {
+  margin: 1em 0;
+  padding-left: 1.5em;
+}
 
-  .mode-inactive {
-    @apply text-white/60 hover:bg-white/10 hover:text-white/80;
-  }
+.prose li {
+  margin-bottom: 0.5em;
+  color: rgba(255, 255, 255, 0.85);
+}
 
-  .action-buttons {
-    @apply flex items-center space-x-2;
-  }
+.prose strong, .prose b {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+}
 
-  .action-btn {
-    @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 border;
-  }
+.prose em, .prose i {
+  color: rgba(255, 255, 255, 0.9);
+  font-style: italic;
+}
 
-  .action-btn:not(.action-primary) {
-    @apply bg-white/5 border-white/20 text-white/70 hover:bg-white/10 hover:text-white/90;
-  }
+.prose a {
+  color: #60a5fa;
+  text-decoration: underline;
+  text-decoration-color: rgba(96, 165, 250, 0.5);
+  transition: all 0.2s ease;
+}
 
-  .action-primary {
-    @apply bg-blue-500/20 border-blue-400/50 text-blue-300 hover:bg-blue-500/30;
-  }
+.prose a:hover {
+  color: #93c5fd;
+  text-decoration-color: rgba(147, 197, 253, 0.7);
+}
 
-  .content-area {
-    @apply mt-4;
-  }
+.prose pre {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1em;
+  margin: 1.5em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  line-height: 1.4;
+  white-space: pre;
+  word-wrap: normal;
+  max-width: 100%;
+}
 
-  .record-button {
-    @apply w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg border-2;
-  }
+.prose pre code {
+  background: none;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875em;
+  white-space: pre;
+  word-wrap: normal;
+  display: block;
+  overflow-x: auto;
+}
 
-  .record-active {
-    @apply bg-red-500/20 border-red-400/50 text-red-300 shadow-red-500/25;
-  }
+.prose code {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.875em;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
 
-  .record-inactive {
-    @apply bg-blue-500/20 border-blue-400/50 text-blue-300 shadow-blue-500/25;
-  }
+.prose blockquote {
+  border-left: 4px solid rgba(96, 165, 250, 0.5);
+  padding-left: 1em;
+  margin: 1.5em 0;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.8);
+}
 
-  .timer-display {
-    @apply text-2xl font-light text-white/90 tracking-wider text-center;
-  }
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+}
 
-  /* Live transcription styles */
-  .live-transcription {
-    @apply max-w-xs truncate bg-black/30 px-3 py-1 rounded-lg border border-blue-400/30;
-  }
+.prose th, .prose td {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
 
-  .transcription-area {
-    @apply w-full mb-3;
-  }
+.prose th {
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
 
-  .transcription-area .animate-pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.5;
-    }
-  }
-
-  /* Mode-specific control sections */
-  .assistant-controls {
-    @apply border-t border-white/10 pt-3;
-  }
-
-  .automation-controls {
-    @apply border-t border-white/10 pt-3;
-  }
-
-  /* Prevent text selection and sizing issues during drag */
-  .dragging {
-    @apply select-none;
-    pointer-events: none;
-  }
-
-  .dragging * {
-    pointer-events: none;
-  }
-
-  .prose {
-    h1, h2, h3, h4, h5, h6 {
-      @apply text-white/90;
-    }
-    p, ul, ol, li, blockquote {
-      @apply text-white/80;
-    }
-    strong {
-      @apply text-white/90;
-    }
-    a {
-      @apply text-blue-400 hover:text-blue-300;
-    }
-    code {
-      @apply bg-white/10 text-white/80 rounded-md px-1.5 py-1;
-    }
-    pre {
-      @apply bg-black/20 p-4 rounded-lg;
-    }
-  }
+.prose td {
+  background: rgba(255, 255, 255, 0.02);
 }
