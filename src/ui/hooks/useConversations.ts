@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from "react";
 
 export interface Conversation {
   id: string;
@@ -12,53 +12,87 @@ export const useConversations = () => {
   const [currentConversationIndex, setCurrentConversationIndex] = useState(-1);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
-  const handleAiResponse = useCallback((response: any) => {
-    if (response.text) {
-      setConversations(prev => {
-        const newConversations = [...prev];
-        if (newConversations[currentConversationIndex]) {
-          newConversations[currentConversationIndex].aiResponse += response.text;
-        }
-        return newConversations;
-      });
-    }
-  }, [currentConversationIndex]);
+  const handleAiResponse = useCallback(
+    (response: any) => {
+      if (response.text) {
+        setConversations((prev) => {
+          const newConversations = [...prev];
+          if (newConversations[currentConversationIndex]) {
+            newConversations[currentConversationIndex].aiResponse +=
+              response.text;
+          }
+          return newConversations;
+        });
+      }
+    },
+    [currentConversationIndex]
+  );
 
   useEffect(() => {
     const handleUpdate = (_event: any, responseText: string) => {
-        setConversations(prev => {
-            const newConversations = [...prev];
-            if (newConversations[currentConversationIndex]) {
-              newConversations[currentConversationIndex].aiResponse = responseText;
-            }
-            return newConversations;
-        });
+      console.log("📨 Received update-response event:", responseText);
+      setConversations((prev) => {
+        const newConversations = [...prev];
+        if (newConversations[currentConversationIndex]) {
+          newConversations[currentConversationIndex].aiResponse = responseText;
+        }
+        return newConversations;
+      });
     };
 
-    const aiResponseHandler = (_event: any, response: any) => handleAiResponse(response);
+    const handleNewTranscription = (_event: any, transcription: string) => {
+      console.log(
+        "🎤 Received new-transcription-conversation event:",
+        transcription
+      );
+      startNewConversation(transcription, () => {});
+    };
+
+    const aiResponseHandler = (_event: any, response: any) => {
+      console.log("🤖 Received ai-response event:", response);
+      handleAiResponse(response);
+    };
 
     if (window.ghostframe?.on) {
-      window.ghostframe.on('ai-response', aiResponseHandler);
-      window.ghostframe.on('update-response', handleUpdate);
+      console.log("🔗 Registering conversation event listeners...");
+      window.ghostframe.on("ai-response", aiResponseHandler);
+      window.ghostframe.on("update-response", handleUpdate);
+      window.ghostframe.on(
+        "new-transcription-conversation",
+        handleNewTranscription
+      );
+      console.log("✅ Conversation event listeners registered");
+    } else {
+      console.error("❌ window.ghostframe.on is not available");
     }
 
     return () => {
       if (window.ghostframe?.off) {
-        window.ghostframe.off('ai-response', aiResponseHandler);
-        window.ghostframe.off('update-response', handleUpdate);
+        console.log("🔗 Unregistering conversation event listeners...");
+        window.ghostframe.off("ai-response", aiResponseHandler);
+        window.ghostframe.off("update-response", handleUpdate);
+        window.ghostframe.off(
+          "new-transcription-conversation",
+          handleNewTranscription
+        );
+        console.log("✅ Conversation event listeners unregistered");
       }
     };
   }, [handleAiResponse, currentConversationIndex]);
 
-  const startNewConversation = (userMessage: string) => {
+  const startNewConversation = (userMessage: string, callback: () => void) => {
     const newConversation: Conversation = {
       id: Date.now().toString(),
       userMessage,
-      aiResponse: '',
+      aiResponse: "",
       timestamp: new Date().toISOString(),
     };
-    setConversations(prev => [...prev, newConversation]);
-    setCurrentConversationIndex(conversations.length);
+    setConversations((prev) => {
+      const newConversations = [...prev, newConversation];
+      setCurrentConversationIndex(newConversations.length - 1);
+      return newConversations;
+    });
+    callback();
   };
 
   const getCurrentConversation = () => {
@@ -70,7 +104,7 @@ export const useConversations = () => {
   const getConversationCounter = () => {
     return conversations.length > 0
       ? `${currentConversationIndex + 1}/${conversations.length}`
-      : '';
+      : "";
   };
 
   const navigateToPreviousConversation = () => {
@@ -91,7 +125,7 @@ export const useConversations = () => {
       setCopiedMessageId(messageId);
       setTimeout(() => setCopiedMessageId(null), 2000);
     } catch (error) {
-      console.error('Failed to copy text:', error);
+      console.error("Failed to copy text:", error);
     }
   };
 
@@ -105,6 +139,6 @@ export const useConversations = () => {
     navigateToNextConversation,
     handleCopyResponse,
     currentConversationIndex,
-    setCurrentConversationIndex
+    setCurrentConversationIndex,
   };
 };

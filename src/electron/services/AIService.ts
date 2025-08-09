@@ -421,7 +421,7 @@ export class AIService {
               // Send transcription updates to renderer (like cheating-daddy)
               if (windows.length > 0) {
                 windows[0].webContents.send(
-                  "transcription-update",
+                  "new-transcription-conversation",
                   this.currentTranscription
                 );
               }

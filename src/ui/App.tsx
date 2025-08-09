@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import {
   Mic,
@@ -39,6 +39,7 @@ const App = () => {
     "assistant"
   );
   const [showInput, setShowInput] = useState(false);
+  const [conversationStarted, setConversationStarted] = useState(false);
 
   const { settings, setSettings } = useSettings();
   const { isAiReady, aiStatus } = useAI(settings);
@@ -52,17 +53,32 @@ const App = () => {
     navigateToNextConversation,
     handleCopyResponse,
     currentConversationIndex,
-    setCurrentConversationIndex
+    setCurrentConversationIndex,
   } = useConversations();
   const { isRecording, timer, handleRecordToggle } = useAudio();
-  const { isContentProtected, handleToggleContentProtection } = useWindowEvents({
-    currentConversationIndex,
-    conversationsLength: conversations.length,
-    navigateToPreviousConversation,
-    navigateToNextConversation,
-    setCurrentConversationIndex
-  });
+  const { isContentProtected, handleToggleContentProtection } = useWindowEvents(
+    {
+      currentConversationIndex,
+      conversationsLength: conversations.length,
+      navigateToPreviousConversation,
+      navigateToNextConversation,
+      setCurrentConversationIndex,
+    }
+  );
   useScreenshots(isRecording);
+
+  useEffect(() => {
+    if (conversationStarted) {
+      setConversationStarted(false);
+    }
+  }, [conversationStarted]);
+
+  // Ensure UI shows conversations when they're created via audio transcription
+  useEffect(() => {
+    if (conversations.length > 0 && mode === "assistant") {
+      setShowInput(true);
+    }
+  }, [conversations.length, mode]);
 
   return (
     <TooltipProvider>
@@ -360,120 +376,138 @@ const App = () => {
             {mode === "assistant" && (
               <>
                 {/* Current Conversation Display (like Cluely) */}
-                {getCurrentConversation() && (
-                  <div className="space-y-4 mb-4">
-                    {/* User Message */}
-                    <div className="bg-blue-500/10 backdrop-blur-xl rounded-xl p-4 border border-blue-400/20">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-8 h-8 bg-blue-500/30 backdrop-blur-sm rounded-full flex items-center justify-center border border-blue-400/50 flex-shrink-0">
-                          <User className="w-4 h-4 text-blue-300" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-xs text-blue-300 mb-1 font-medium">
-                            You
+                {conversations.length > 0 ? (
+                  getCurrentConversation() && (
+                    <div className="space-y-4 mb-4">
+                      {/* User Message */}
+                      <div className="bg-blue-500/10 backdrop-blur-xl rounded-xl p-4 border border-blue-400/20">
+                        <div className="flex items-start space-x-3">
+                          <div className="w-8 h-8 bg-blue-500/30 backdrop-blur-sm rounded-full flex items-center justify-center border border-blue-400/50 flex-shrink-0">
+                            <User className="w-4 h-4 text-blue-300" />
                           </div>
-                          <div className="text-white/90 leading-relaxed">
-                            {getCurrentConversation()?.userMessage}
-                          </div>
-                          <div className="text-xs text-blue-300/60 mt-2">
-                            {new Date(
-                              getCurrentConversation()?.timestamp || ""
-                            ).toLocaleTimeString()}
+                          <div className="flex-1">
+                            <div className="text-xs text-blue-300 mb-1 font-medium">
+                              You
+                            </div>
+                            <div className="text-white/90 leading-relaxed">
+                              {getCurrentConversation()?.userMessage}
+                            </div>
+                            <div className="text-xs text-blue-300/60 mt-2">
+                              {new Date(
+                                getCurrentConversation()?.timestamp || ""
+                              ).toLocaleTimeString()}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* AI Response */}
-                    <div className="bg-black/20 backdrop-blur-xl rounded-xl p-4 border border-white/10">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-8 h-8 bg-purple-500/30 backdrop-blur-sm rounded-full flex items-center justify-center border border-purple-400/50 flex-shrink-0">
-                          <Bot className="w-4 h-4 text-purple-300" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-end mb-2">
-                            <Badge
-                              variant="secondary"
-                              className="text-xs text-purple-300/60 px-2 py-1 bg-purple-500/10 rounded-full border border-purple-400/20"
-                            >
-                              {settings.provider.charAt(0).toUpperCase() +
-                                settings.provider.slice(1)}
-                            </Badge>
+                      {/* AI Response */}
+                      <div className="bg-black/20 backdrop-blur-xl rounded-xl p-4 border border-white/10">
+                        <div className="flex items-start space-x-3">
+                          <div className="w-8 h-8 bg-purple-500/30 backdrop-blur-sm rounded-full flex items-center justify-center border border-purple-400/50 flex-shrink-0">
+                            <Bot className="w-4 h-4 text-purple-300" />
                           </div>
-                          <div className="relative group">
-                            {getCurrentConversation()?.aiResponse ? (
-                              <div className="min-h-[120px] max-h-[400px] overflow-y-auto prose prose-sm bg-transparent p-0 text-white/80 max-w-full overflow-x-hidden break-words">
-                                <ReactMarkdown
-                                  key={getCurrentConversation()?.id}
-                                  components={{
-                                    code: ({ children, className }) => {
-                                      const isInline = !className;
-                                      return isInline ? (
-                                        <code className="bg-white/10 text-white/90 px-1.5 py-0.5 rounded text-xs font-mono">
-                                          {children}
-                                        </code>
-                                      ) : (
-                                        <pre className="bg-black/40 border border-white/10 rounded-lg p-3 overflow-x-auto text-xs">
-                                          <code className="text-white/90 font-mono text-xs leading-relaxed">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-end mb-2">
+                              <Badge
+                                variant="secondary"
+                                className="text-xs text-purple-300/60 px-2 py-1 bg-purple-500/10 rounded-full border border-purple-400/20"
+                              >
+                                {settings.provider.charAt(0).toUpperCase() +
+                                  settings.provider.slice(1)}
+                              </Badge>
+                            </div>
+                            <div className="relative group">
+                              {getCurrentConversation()?.aiResponse ? (
+                                <div className="min-h-[120px] max-h-[400px] overflow-y-auto prose prose-sm bg-transparent p-0 text-white/80 max-w-full overflow-x-hidden break-words">
+                                  <ReactMarkdown
+                                    key={getCurrentConversation()?.id}
+                                    components={{
+                                      code: ({ children, className }) => {
+                                        const isInline = !className;
+                                        return isInline ? (
+                                          <code className="bg-white/10 text-white/90 px-1.5 py-0.5 rounded text-xs font-mono">
                                             {children}
                                           </code>
-                                        </pre>
-                                      );
-                                    },
-                                  }}
-                                >
-                                  {getCurrentConversation()?.aiResponse || ""}
-                                </ReactMarkdown>
-                              </div>
-                            ) : (
-                              <div className="flex-1 space-y-2">
-                                <div className="flex items-center justify-end mb-2">
-                                  <div className="flex space-x-1">
-                                    <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" />
-                                    <div
-                                      className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"
-                                      style={{ animationDelay: "0.1s" }}
-                                    />
-                                    <div
-                                      className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"
-                                      style={{ animationDelay: "0.2s" }}
-                                    />
-                                  </div>
+                                        ) : (
+                                          <pre className="bg-black/40 border border-white/10 rounded-lg p-3 overflow-x-auto text-xs">
+                                            <code className="text-white/90 font-mono text-xs leading-relaxed">
+                                              {children}
+                                            </code>
+                                          </pre>
+                                        );
+                                      },
+                                    }}
+                                  >
+                                    {getCurrentConversation()?.aiResponse || ""}
+                                  </ReactMarkdown>
                                 </div>
-                                <Skeleton className="h-4 w-full bg-white/10" />
-                                <Skeleton className="h-4 w-3/4 bg-white/10" />
-                                <Skeleton className="h-4 w-1/2 bg-white/10" />
-                              </div>
-                            )}
-                            <button
-                              onClick={() =>
-                                handleCopyResponse(
-                                  getCurrentConversation()?.aiResponse || "",
-                                  getCurrentConversation()?.id || ""
-                                )
-                              }
-                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1.5 bg-black/60 hover:bg-black/80 rounded border border-white/20 text-white/70 hover:text-white"
-                            >
-                              {copiedMessageId ===
-                              getCurrentConversation()?.id ? (
-                                <Check className="w-3 h-3" />
                               ) : (
-                                <Copy className="w-3 h-3" />
+                                <div className="flex-1 space-y-2">
+                                  <div className="flex items-center justify-end mb-2">
+                                    <div className="flex space-x-1">
+                                      <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" />
+                                      <div
+                                        className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"
+                                        style={{ animationDelay: "0.1s" }}
+                                      />
+                                      <div
+                                        className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"
+                                        style={{ animationDelay: "0.2s" }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <Skeleton className="h-4 w-full bg-white/10" />
+                                  <Skeleton className="h-4 w-3/4 bg-white/10" />
+                                  <Skeleton className="h-4 w-1/2 bg-white/10" />
+                                </div>
                               )}
-                            </button>
+                              <button
+                                onClick={() =>
+                                  handleCopyResponse(
+                                    getCurrentConversation()?.aiResponse || "",
+                                    getCurrentConversation()?.id || ""
+                                  )
+                                }
+                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1.5 bg-black/60 hover:bg-black/80 rounded border border-white/20 text-white/70 hover:text-white"
+                              >
+                                {copiedMessageId ===
+                                getCurrentConversation()?.id ? (
+                                  <Check className="w-3 h-3" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
+                  )
+                ) : (
+                  <div className="text-center text-white/50 py-8">
+                    <Bot className="w-12 h-12 mx-auto mb-4 text-white/30" />
+                    <p className="text-sm">
+                      No conversation yet. Ask me anything!
+                    </p>
+                    <p className="text-xs mt-2 text-white/40">
+                      I can analyze screenshots, answer questions, and help with
+                      coding.
+                    </p>
                   </div>
                 )}
 
-                {showInput && (
+                {/* Always show AssistantView when there are conversations or when showInput is true */}
+                {(showInput || conversations.length > 0) && (
                   <AssistantView
                     settings={settings}
                     showInput={showInput}
                     isAiReady={isAiReady}
-                    onStartConversation={startNewConversation}
+                    onStartConversation={(userMessage) =>
+                      startNewConversation(userMessage, () =>
+                        setConversationStarted(true)
+                      )
+                    }
                   />
                 )}
               </>

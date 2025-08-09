@@ -152,7 +152,9 @@ export class WebAudioCapture {
         // Only send chunks with actual audio content (not silence)
         if (rms > 0.001 || maxAmplitude > 0.01) {
           const pcmData16 = this.convertFloat32ToInt16(chunk);
-          const base64Data = this.arrayBufferToBase64(pcmData16.buffer);
+          const base64Data = this.arrayBufferToBase64(
+            pcmData16.buffer as ArrayBuffer
+          );
 
           // Send to AI service
           try {
@@ -163,7 +165,8 @@ export class WebAudioCapture {
                 4
               )}, Max: ${maxAmplitude.toFixed(4)}`
             );
-            await window.ghostframe.ai.sendAudio?.(base64Data);
+            const result = await window.ghostframe.ai.sendAudio?.(base64Data);
+            console.log("📤 Audio send result:", result);
           } catch (error) {
             console.error("Error sending audio chunk:", error);
           }
