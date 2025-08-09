@@ -43,6 +43,14 @@ export class StealthWindowManager {
       window.webContents.openDevTools({ mode: "detach" });
     } else {
       window.loadFile(path.join(app.getAppPath(), "dist-react/index.html"));
+      // Enable content protection by default in production
+      try {
+        this.enableContentProtection(window);
+        // Inform renderer so UI badge reflects the state immediately
+        window.webContents.send("content-protection-toggled", true);
+      } catch (e) {
+        console.warn("Failed to enable content protection on startup:", e);
+      }
     }
 
     // Set up the toggle hotkey

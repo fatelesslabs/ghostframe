@@ -113,6 +113,12 @@ export class AIService {
   private messageBuffer: string = "";
   private transcriptionInProgress: boolean = false;
   private lastNewTranscriptionEventAt: number = 0;
+  private verboseLogging: boolean = false;
+  private logLevel: "debug" | "info" | "warn" | "error" = "info";
+  private providerPrefix = "[AI]";
+  private lastActivityAt: number = Date.now();
+  private heartbeatIntervalMs = 15000; // 15s
+  private heartbeatTimer: NodeJS.Timeout | null = null;
 
   // Enhanced session management inspired by cheating-daddy
   private isInitializingSession = false;
@@ -123,6 +129,20 @@ export class AIService {
 
   constructor() {
     this.store = new Store();
+  }
+
+  private logDebug(...args: any[]) {
+    if (this.logLevel === "debug") console.debug(this.providerPrefix, ...args);
+  }
+  private logInfo(...args: any[]) {
+    if (this.logLevel === "debug" || this.logLevel === "info")
+      console.log(this.providerPrefix, ...args);
+  }
+  private logWarn(...args: any[]) {
+    console.warn(this.providerPrefix, ...args);
+  }
+  private logError(...args: any[]) {
+    console.error(this.providerPrefix, ...args);
   }
 
   /**
@@ -154,7 +174,7 @@ export class AIService {
   private async getEnabledTools(config: AIConfig): Promise<any[]> {
     const tools = [];
 
-    if (config.googleSearchEnabled !== false) {
+    if (config.googleSearchEnabled === true) {
       tools.push({ googleSearch: {} });
       console.log("Added Google Search tool");
     }
@@ -201,58 +221,57 @@ export class AIService {
    * Attempt automatic reconnection (inspired by cheating-daddy)
    */
   private async attemptReconnection(): Promise<boolean> {
-    if (
-      !this.lastSessionParams ||
-      this.reconnectionAttempts >= this.maxReconnectionAttempts
+    if (!this.lastSessionParams) {
+      if (this.verboseLogging)
+        console.log("No session params stored; cannot reconnect");
+      const windows = BrowserWindow.getAllWindows();
+      if (windows.length > 0) {
+        windows[0].webContents.send("ai-status", { status: "closed" });
+      }
+      return false;
+    }
+
+    for (
+      this.reconnectionAttempts = 1;
+      this.reconnectionAttempts <= this.maxReconnectionAttempts;
+      this.reconnectionAttempts++
     ) {
-      console.log(
-        "Max reconnection attempts reached or no session params stored"
+      if (this.verboseLogging)
+        console.log(
+          `Attempting reconnection ${this.reconnectionAttempts}/${this.maxReconnectionAttempts}...`
+        );
+      await new Promise((resolve) =>
+        setTimeout(resolve, this.reconnectionDelay)
       );
-      const windows = BrowserWindow.getAllWindows();
-      if (windows.length > 0) {
-        windows[0].webContents.send("ai-status", { status: "closed" });
+      try {
+        const response = await this.initialize(this.lastSessionParams);
+        if (response.success) {
+          this.reconnectionAttempts = 0;
+          console.log("Live session reconnected");
+          await this.sendReconnectionContext();
+          return true;
+        }
+      } catch (error) {
+        console.error(
+          `Reconnection attempt ${this.reconnectionAttempts} failed:`,
+          error
+        );
       }
-      return false;
     }
 
-    this.reconnectionAttempts++;
-    console.log(
-      `Attempting reconnection ${this.reconnectionAttempts}/${this.maxReconnectionAttempts}...`
-    );
-
-    await new Promise((resolve) => setTimeout(resolve, this.reconnectionDelay));
-
-    try {
-      const response = await this.initialize(this.lastSessionParams);
-      if (response.success) {
-        this.reconnectionAttempts = 0;
-        console.log("Live session reconnected");
-        await this.sendReconnectionContext();
-        return true;
-      }
-    } catch (error) {
-      console.error(
-        `Reconnection attempt ${this.reconnectionAttempts} failed:`,
-        error
-      );
+    console.log("All reconnection attempts failed");
+    const windows = BrowserWindow.getAllWindows();
+    if (windows.length > 0) {
+      windows[0].webContents.send("ai-status", { status: "closed" });
     }
-
-    if (this.reconnectionAttempts < this.maxReconnectionAttempts) {
-      return this.attemptReconnection();
-    } else {
-      console.log("All reconnection attempts failed");
-      const windows = BrowserWindow.getAllWindows();
-      if (windows.length > 0) {
-        windows[0].webContents.send("ai-status", { status: "closed" });
-      }
-      return false;
-    }
+    return false;
   }
 
   async initialize(config: AIConfig): Promise<AIResponse> {
     try {
-      console.log("Initializing AI with config:", config);
       this.provider = config.provider;
+      this.providerPrefix = `[${this.provider.toUpperCase()}]`;
+      this.logInfo("Initializing AI with config (redacted)");
 
       // Store params for potential reconnection
       this.lastSessionParams = config;
@@ -281,10 +300,10 @@ export class AIService {
           googleSearchEnabled: config.googleSearchEnabled,
         });
       }
-      console.log("AI initialization result:", response);
+      this.logInfo("AI initialization result:", response);
       return response;
     } catch (error) {
-      console.error("Error during AI initialization:", error);
+      this.logError("Error during AI initialization:", error);
       return { success: false, error: (error as Error).message };
     }
   }
@@ -353,7 +372,7 @@ export class AIService {
 
   private async initializeGemini(config: AIConfig): Promise<AIResponse> {
     try {
-      console.log("Initializing Gemini Live session...");
+      this.logInfo("Initializing Gemini Live session...");
 
       // Prevent concurrent initializations
       if (this.isInitializingSession) {
@@ -393,20 +412,19 @@ export class AIService {
         model: "gemini-live-2.5-flash-preview",
         callbacks: {
           onopen: () => {
-            console.log("Gemini Live session opened successfully.");
+            this.logInfo("Gemini Live session opened successfully.");
             const windows = BrowserWindow.getAllWindows();
             if (windows.length > 0) {
-              console.log("Sending ai-status connected to renderer");
+              this.logDebug("Sending ai-status connected to renderer");
               windows[0].webContents.send("ai-status", { status: "connected" });
             } else {
-              console.log("No windows found to send ai-status");
+              this.logWarn("No windows found to send ai-status");
             }
+            this.startHeartbeat();
           },
           onmessage: (message: any) => {
-            console.log(
-              "Gemini onmessage callback triggered:",
-              JSON.stringify(message, null, 2)
-            );
+            if (this.verboseLogging) this.logDebug("onmessage:", message);
+            this.lastActivityAt = Date.now();
             const windows = BrowserWindow.getAllWindows();
 
             // Handle transcription input (like cheating-daddy)
@@ -433,10 +451,7 @@ export class AIService {
               } else {
                 this.currentTranscription += incomingText;
               }
-              console.log(`🎤 Transcription received: "${incomingText}"`);
-              console.log(
-                `🎤 Full transcription so far: "${this.currentTranscription}"`
-              );
+              this.logDebug(`transcription: "${incomingText}"`);
               if (windows.length > 0) {
                 windows[0].webContents.send(
                   "transcription-update",
@@ -449,10 +464,14 @@ export class AIService {
             if (message.serverContent?.modelTurn?.parts) {
               for (const part of message.serverContent.modelTurn.parts) {
                 if (part.text) {
+                  const t = String(part.text).trim();
+                  if (!t || t === "[ping]") continue;
                   this.messageBuffer += part.text;
-                  console.log(`🤖 AI response part: "${part.text}"`);
+                  if (this.verboseLogging)
+                    this.logDebug(`part: "${part.text}"`);
                   if (windows.length > 0) {
-                    console.log("Sending ai-response with text:", part.text);
+                    if (this.verboseLogging)
+                      this.logDebug("send ai-response text");
                     windows[0].webContents.send("ai-response", {
                       success: true,
                       text: part.text,
@@ -470,9 +489,7 @@ export class AIService {
 
             // Handle completion (like cheating-daddy)
             if (message.serverContent?.generationComplete) {
-              console.log(
-                `✅ Generation complete! Transcription: "${this.currentTranscription}", Response: "${this.messageBuffer}"`
-              );
+              if (this.verboseLogging) this.logDebug("generationComplete");
 
               // Save conversation turn when we have both transcription and AI response
               if (this.currentTranscription && this.messageBuffer) {
@@ -485,9 +502,10 @@ export class AIService {
               this.messageBuffer = "";
               this.transcriptionInProgress = false;
               this.lastNewTranscriptionEventAt = Date.now();
+              this.lastActivityAt = Date.now();
 
               if (windows.length > 0) {
-                console.log("Sending generationComplete flag");
+                this.logDebug("send generationComplete flag");
                 windows[0].webContents.send("ai-response", {
                   serverContent: { generationComplete: true },
                 });
@@ -497,7 +515,7 @@ export class AIService {
             // Forward completion flags so renderer can finalize placeholder
             if (windows.length > 0) {
               if (message.serverContent?.turnComplete) {
-                console.log("🔄 Turn complete - AI is ready for next input");
+                this.logDebug("turnComplete");
                 windows[0].webContents.send("ai-response", {
                   serverContent: { turnComplete: true },
                 });
@@ -505,7 +523,7 @@ export class AIService {
             }
           },
           onerror: (error: Error) => {
-            console.error("Gemini Live session error:", error);
+            this.logError("Gemini Live session error:", error);
 
             // Check for API key errors
             const isApiKeyError =
@@ -516,7 +534,7 @@ export class AIService {
                 error.message.includes("unauthorized"));
 
             if (isApiKeyError) {
-              console.error("Invalid API key detected");
+              this.logError("Invalid API key detected");
               const windows = BrowserWindow.getAllWindows();
               if (windows.length > 0) {
                 windows[0].webContents.send("ai-response", {
@@ -537,7 +555,8 @@ export class AIService {
             }
           },
           onclose: (reason: any) => {
-            console.log("Gemini Live session closed. Reason:", reason);
+            this.logWarn("Gemini Live session closed. Reason:", reason);
+            this.stopHeartbeat();
 
             // Check for API key errors in close reason
             const isApiKeyError =
@@ -548,7 +567,7 @@ export class AIService {
                 reason.includes("unauthorized"));
 
             if (isApiKeyError) {
-              console.error("Session closed due to invalid API key");
+              this.logError("Session closed due to invalid API key");
               const windows = BrowserWindow.getAllWindows();
               if (windows.length > 0) {
                 windows[0].webContents.send("ai-status", {
@@ -564,7 +583,7 @@ export class AIService {
               this.lastSessionParams &&
               this.reconnectionAttempts < this.maxReconnectionAttempts
             ) {
-              console.log("Attempting automatic reconnection...");
+              this.logInfo("Attempting automatic reconnection...");
               this.attemptReconnection();
             } else {
               const windows = BrowserWindow.getAllWindows();
@@ -591,11 +610,11 @@ export class AIService {
       });
 
       this.isInitializingSession = false;
-      console.log("Gemini Live session initialized successfully.");
+      this.logInfo("Gemini Live session initialized successfully.");
       return { success: true };
     } catch (error) {
       this.isInitializingSession = false;
-      console.error("Error initializing Gemini Live:", error);
+      this.logError("Error initializing Gemini Live:", error);
 
       const windows = BrowserWindow.getAllWindows();
       if (windows.length > 0) {
@@ -662,9 +681,7 @@ export class AIService {
     try {
       if (this.provider === "gemini") {
         // Add debug logging to track audio processing
-        console.log(
-          `🔊 Sending audio chunk (${audioData.length} chars) to Gemini...`
-        );
+        this.logDebug(`send audio chunk (${audioData.length})`);
 
         await this.session.sendRealtimeInput({
           audio: {
@@ -674,7 +691,7 @@ export class AIService {
         });
 
         // Log successful audio send
-        process.stdout.write("🎵");
+        if (this.logLevel === "debug") process.stdout.write("🎵");
 
         return { success: true };
       }
@@ -865,11 +882,42 @@ export class AIService {
         await this.session.close();
         this.session = null;
       }
+      this.stopHeartbeat();
       this.client = null;
       this.provider = null;
       this.conversationHistory = [];
     } catch (error) {
-      console.error("Error during AI service cleanup:", error);
+      this.logError("Error during AI service cleanup:", error);
+    }
+  }
+
+  private startHeartbeat() {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(async () => {
+      const now = Date.now();
+      // If quiet for > heartbeatInterval, ping the session
+      if (
+        now - this.lastActivityAt > this.heartbeatIntervalMs &&
+        this.session
+      ) {
+        try {
+          // Use a low-impact heartbeat that doesn't affect model text output
+          this.logDebug("sending heartbeat noop");
+          await this.session.sendRealtimeInput({ event: "ping" } as any);
+          this.lastActivityAt = now;
+        } catch (e) {
+          this.logWarn("heartbeat ping failed, attempting reconnection");
+          this.stopHeartbeat();
+          this.attemptReconnection();
+        }
+      }
+    }, this.heartbeatIntervalMs);
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
   }
 }

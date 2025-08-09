@@ -36,27 +36,20 @@ export const AutomationView = () => {
       { message, type, timestamp: new Date().toISOString() },
       ...prev,
     ]);
+
+    // Infer session status from logs emitted by main
+    const lower = message.toLowerCase();
+    if (lower.includes("automation session started")) setIsSessionActive(true);
+    if (lower.includes("automation session stopped")) setIsSessionActive(false);
   };
 
   useEffect(() => {
     if (window.ghostframe?.on) {
       window.ghostframe.on("log-message", handleLogMessage);
-      window.ghostframe.on(
-        "automation-session-status",
-        (_event: any, active: boolean) => {
-          setIsSessionActive(active);
-        }
-      );
     }
     return () => {
       if (window.ghostframe?.off) {
         window.ghostframe.off("log-message", handleLogMessage);
-        window.ghostframe.off(
-          "automation-session-status",
-          (_event: any, active: boolean) => {
-            setIsSessionActive(active);
-          }
-        );
       }
     };
   }, []);
@@ -226,13 +219,14 @@ export const AutomationView = () => {
             </Button>
           </div>
 
-          {/* Quick Tasks */}
+          {/* Quick Tasks (derived from README examples) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
             <Button
               onClick={() =>
                 handleAction({
                   type: "ai_command",
-                  command: "Research the latest AI news on TechCrunch",
+                  command:
+                    "Complete this LeetCode problem step by step and explain the approach",
                 })
               }
               variant="outline"
@@ -240,13 +234,13 @@ export const AutomationView = () => {
               className="text-left justify-start h-auto py-4 bg-blue-500/20 hover:bg-blue-500/30 border-blue-400/30 text-white"
               disabled={!isSessionActive}
             >
-              📰 Get Latest Tech News
+              🧩 Solve LeetCode Problem
             </Button>
             <Button
               onClick={() =>
                 handleAction({
                   type: "ai_command",
-                  command: "Find trending products on Product Hunt today",
+                  command: "Fill out this form with my profile details",
                 })
               }
               variant="outline"
@@ -254,13 +248,14 @@ export const AutomationView = () => {
               className="text-left justify-start h-auto py-4 bg-green-500/20 hover:bg-green-500/30 border-green-400/30 text-white"
               disabled={!isSessionActive}
             >
-              🚀 Browse Product Hunt
+              � Fill a Web Form
             </Button>
             <Button
               onClick={() =>
                 handleAction({
                   type: "ai_command",
-                  command: "Check my GitHub notifications and recent activity",
+                  command:
+                    "Take this quiz and answer using the provided study notes",
                 })
               }
               variant="outline"
@@ -268,14 +263,14 @@ export const AutomationView = () => {
               className="text-left justify-start h-auto py-4 bg-purple-500/20 hover:bg-purple-500/30 border-purple-400/30 text-white"
               disabled={!isSessionActive}
             >
-              💻 GitHub Dashboard
+              🧠 Take a Quiz
             </Button>
             <Button
               onClick={() =>
                 handleAction({
                   type: "ai_command",
                   command:
-                    "Compare prices for MacBook Air M2 across major retailers",
+                    "Research this topic and summarize key points with sources",
                 })
               }
               variant="outline"
@@ -283,7 +278,7 @@ export const AutomationView = () => {
               className="text-left justify-start h-auto py-4 bg-orange-500/20 hover:bg-orange-500/30 border-orange-400/30 text-white"
               disabled={!isSessionActive}
             >
-              🛒 Price Comparison
+              � Research & Summarize
             </Button>
           </div>
 

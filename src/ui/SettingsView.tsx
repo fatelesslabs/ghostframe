@@ -56,6 +56,8 @@ export const SettingsView = ({ settings, setSettings }: SettingsViewProps) => {
       provider: settings.provider,
       apiKey: settings.apiKey,
       customPrompt: settings.customInstructions,
+      profile: settings.profile,
+      googleSearchEnabled: settings.googleSearchEnabled,
     });
   };
 

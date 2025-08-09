@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, clipboard } = require("electron");
 
 // Define the API that will be exposed to the renderer process
 export interface GhostframeAPI {
@@ -23,6 +23,7 @@ export interface GhostframeAPI {
     startAudio: () => Promise<any>;
     stopAudio: () => Promise<any>;
     enableTranscription: (enabled: boolean) => Promise<any>;
+    getAudioDevices: () => Promise<any>;
     takeScreenshot: (options?: any) => Promise<any>;
     startPeriodicScreenshots: (interval: number) => Promise<any>;
     stopPeriodicScreenshots: () => Promise<any>;
@@ -50,6 +51,12 @@ export interface GhostframeAPI {
   settings: {
     save: (settings: any) => Promise<void>;
     get: () => Promise<any>;
+  };
+
+  // Clipboard
+  clipboard: {
+    writeText: (text: string) => Promise<void>;
+    readText: () => Promise<string>;
   };
 
   // Events
@@ -88,6 +95,7 @@ const ghostframeAPI: GhostframeAPI = {
     stopAudio: () => ipcRenderer.invoke("capture:stopAudio"),
     enableTranscription: (enabled: boolean) =>
       ipcRenderer.invoke("capture:enableTranscription", enabled),
+    getAudioDevices: () => ipcRenderer.invoke("capture:getAudioDevices"),
     takeScreenshot: (options) =>
       ipcRenderer.invoke("capture:takeScreenshot", options),
     startPeriodicScreenshots: (interval) =>
@@ -117,6 +125,11 @@ const ghostframeAPI: GhostframeAPI = {
   settings: {
     save: (settings) => ipcRenderer.invoke("settings:save", settings),
     get: () => ipcRenderer.invoke("settings:get"),
+  },
+
+  clipboard: {
+    writeText: (text: string) => Promise.resolve(clipboard.writeText(text)),
+    readText: () => Promise.resolve(clipboard.readText()),
   },
 
   on: (channel, callback) => {

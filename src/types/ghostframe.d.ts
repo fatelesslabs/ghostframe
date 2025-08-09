@@ -21,6 +21,10 @@ declare global {
         enableTranscription: (
           enabled: boolean
         ) => Promise<{ success: boolean }>;
+        getAudioDevices?: () => Promise<{
+          success: boolean;
+          devices?: string[];
+        }>;
         takeScreenshot?: () => Promise<{ success: boolean; data?: string }>;
       };
       window: {
@@ -44,11 +48,55 @@ declare global {
       settings?: {
         save: (settings: AppSettings) => Promise<{ success: boolean }>;
       };
-      on: (channel: string, callback: (...args: any[]) => void) => void;
-      off: (channel: string, callback: (...args: any[]) => void) => void;
+      clipboard?: {
+        writeText: (text: string) => Promise<void>;
+        readText: () => Promise<string>;
+      };
+      on: (
+        channel: GhostframeChannel,
+        callback: (...args: any[]) => void
+      ) => void;
+      off: (
+        channel: GhostframeChannel,
+        callback: (...args: any[]) => void
+      ) => void;
       send?: (channel: string, ...args: any[]) => void;
     };
   }
+}
+
+// IPC channel enums for stronger typing
+export type GhostframeChannel =
+  | "ai-response"
+  | "ai-status"
+  | "click-through-toggled"
+  | "content-protection-toggled"
+  | "transcription-update"
+  | "new-transcription-conversation"
+  | "update-response"
+  | "conversation-turn-saved"
+  | "mode-changed"
+  | "trigger-answer"
+  | "trigger-automation"
+  | "audio-data"
+  | "screenshot-data"
+  | "automation-progress"
+  | "status-update"
+  | "log-message";
+
+export type AIStatus =
+  | "initializing"
+  | "connected"
+  | "connecting"
+  | "error"
+  | "closed";
+
+export interface AIResponseEvent {
+  success?: boolean;
+  text?: string;
+  error?: string;
+  provider?: string;
+  serverContent?: { generationComplete?: boolean; turnComplete?: boolean };
 }
 
 export {};

@@ -75,9 +75,11 @@ const App = () => {
 
   // Ensure UI shows conversations when they're created via audio transcription
   useEffect(() => {
+    let t: any;
     if (conversations.length > 0 && mode === "assistant") {
-      setShowInput(true);
+      t = setTimeout(() => setShowInput(true), 150);
     }
+    return () => t && clearTimeout(t);
   }, [conversations.length, mode]);
 
   return (
@@ -392,6 +394,17 @@ const App = () => {
                             <div className="text-white/90 leading-relaxed">
                               {getCurrentConversation()?.userMessage}
                             </div>
+                            {/* Screenshot preview (disabled per request)
+                            {getCurrentConversation()?.screenshotData && (
+                              <div className="mt-3">
+                                <img
+                                  src={getCurrentConversation()?.screenshotData}
+                                  alt="screenshot preview"
+                                  className="max-w-[240px] max-h-[140px] rounded border border-white/10 shadow-md"
+                                />
+                              </div>
+                            )}
+                            */}
                             <div className="text-xs text-blue-300/60 mt-2">
                               {new Date(
                                 getCurrentConversation()?.timestamp || ""
@@ -503,9 +516,11 @@ const App = () => {
                     settings={settings}
                     showInput={showInput}
                     isAiReady={isAiReady}
-                    onStartConversation={(userMessage) =>
-                      startNewConversation(userMessage, () =>
-                        setConversationStarted(true)
+                    onStartConversation={(userMessage, screenshotData) =>
+                      startNewConversation(
+                        userMessage,
+                        () => setConversationStarted(true),
+                        screenshotData ? { screenshotData } : undefined
                       )
                     }
                   />

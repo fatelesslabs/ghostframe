@@ -11,6 +11,7 @@ export interface AudioCaptureConfig {
   bitDepth?: number;
   bufferDuration?: number;
   enableDebug?: boolean;
+  deviceName?: string; // Windows dshow device name, e.g., "virtual-audio-capturer"
 }
 
 export interface AudioData {
@@ -41,6 +42,7 @@ export class AudioCaptureService {
       bitDepth: 16,
       bufferDuration: AudioCaptureService.AUDIO_CHUNK_DURATION,
       enableDebug: false,
+      deviceName: "",
     };
 
     // Ensure audio directories exist
@@ -179,30 +181,8 @@ To install FFmpeg on Windows:
   }
 
   private async startWindowsCapture(): Promise<void> {
-    // Try multiple Windows audio capture methods
-    const methods = [
-      () => this.tryWindowsFFmpeg(),
-      () => this.tryWindowsPowershell(),
-      () => this.tryWindowsNode(),
-    ];
-
-    let lastError: Error | null = null;
-
-    for (const method of methods) {
-      try {
-        await method();
-        console.log("✅ Windows audio capture method succeeded");
-        return;
-      } catch (error) {
-        console.warn("⚠️ Windows audio capture method failed:", error);
-        lastError = error as Error;
-        continue;
-      }
-    }
-
-    throw new Error(
-      `All Windows audio capture methods failed. Last error: ${lastError?.message}. Please install FFmpeg or use a different audio source.`
-    );
+    // Use FFmpeg dshow on Windows; device can be selected via config.deviceName
+    await this.tryWindowsFFmpeg();
   }
 
   private async tryWindowsFFmpeg(): Promise<void> {
@@ -211,14 +191,14 @@ To install FFmpeg on Windows:
       throw new Error("FFmpeg not found");
     }
 
-    // Try to list audio devices first
-    console.log("🔍 Detecting Windows audio devices...");
-
+    const deviceArg = this.config.deviceName
+      ? `audio=${this.config.deviceName}`
+      : "audio="; // default device
     const args = [
       "-f",
       "dshow",
       "-i",
-      "audio=", // Try default audio device
+      deviceArg,
       "-f",
       "s16le",
       "-ar",
@@ -233,23 +213,6 @@ To install FFmpeg on Windows:
     });
 
     this.setupAudioProcessing();
-  }
-
-  private async tryWindowsPowershell(): Promise<void> {
-    // Use PowerShell with Windows Media Format SDK (if available)
-    console.log("🔍 Trying PowerShell audio capture...");
-
-    // This is a fallback method - create a simple PowerShell script
-    // that can capture audio using Windows APIs
-    throw new Error("PowerShell audio capture not implemented yet");
-  }
-
-  private async tryWindowsNode(): Promise<void> {
-    // Use Node.js audio libraries as fallback
-    console.log("🔍 Trying Node.js audio capture...");
-
-    // For now, this method is not implemented
-    throw new Error("Node.js audio capture not implemented yet");
   }
 
   private async startLinuxCapture(): Promise<void> {
@@ -296,12 +259,13 @@ To install FFmpeg on Windows:
     }
 
     // Enhanced chunking inspired by cheating-daddy
-    const CHUNK_DURATION = 0.1; // 100ms chunks for real-time processing
+    const CHUNK_DURATION = this.config.bufferDuration; // seconds
     const SAMPLE_RATE = this.config.sampleRate;
     const BYTES_PER_SAMPLE = this.config.bitDepth / 8;
-    const CHANNELS = 2; // Assume stereo input, convert to mono
-    const CHUNK_SIZE =
-      SAMPLE_RATE * BYTES_PER_SAMPLE * CHANNELS * CHUNK_DURATION;
+    const CHANNELS = this.config.channels; // honor configured channels
+    const CHUNK_SIZE = Math.floor(
+      SAMPLE_RATE * BYTES_PER_SAMPLE * CHANNELS * CHUNK_DURATION
+    );
 
     console.log(
       `Audio chunking: ${CHUNK_DURATION}s chunks, ${CHUNK_SIZE} bytes each`
@@ -315,8 +279,9 @@ To install FFmpeg on Windows:
         const chunk = this.audioBuffer.slice(0, CHUNK_SIZE);
         this.audioBuffer = this.audioBuffer.slice(CHUNK_SIZE);
 
-        // Convert stereo to mono (like cheating-daddy)
-        const monoChunk = this.convertStereoToMono(chunk);
+        // Convert to mono if needed
+        const monoChunk =
+          this.config.channels === 2 ? this.convertStereoToMono(chunk) : chunk;
 
         // Enhanced audio processing with analysis
         const timestamp = Date.now();
@@ -336,28 +301,30 @@ To install FFmpeg on Windows:
           process.stdout.write(".");
         }
 
-        // Convert to base64 and send immediately
-        const audioData: AudioData = {
-          data: monoChunk.toString("base64"),
-          format: {
-            sampleRate: this.config.sampleRate,
-            channels: 1, // Always mono output
-            bitDepth: this.config.bitDepth,
-          },
-          timestamp,
-          analysis,
-        };
+        // Silence gating: skip sending mostly silent chunks
+        const isMostlySilent = this.isSilent(monoChunk);
+        if (!isMostlySilent) {
+          // Convert to base64 and send immediately
+          const audioData: AudioData = {
+            data: monoChunk.toString("base64"),
+            format: {
+              sampleRate: this.config.sampleRate,
+              channels: 1, // Always mono output
+              bitDepth: this.config.bitDepth,
+            },
+            timestamp,
+            analysis,
+          };
 
-        if (this.onAudioDataCallback) {
-          this.onAudioDataCallback(audioData);
-        }
-
-        // Send for transcription if enabled
-        if (this.transcriptionEnabled && this.onTranscriptionCallback) {
-          this.processTranscription(audioData);
+          if (this.onAudioDataCallback) {
+            this.onAudioDataCallback(audioData);
+          }
+          // Send for transcription if enabled
+          if (this.transcriptionEnabled && this.onTranscriptionCallback) {
+            this.processTranscription(audioData);
+          }
         }
       }
-
       // Limit buffer size to prevent memory issues (like cheating-daddy)
       const maxBufferSize = SAMPLE_RATE * BYTES_PER_SAMPLE * 1; // 1 second max
       if (this.audioBuffer.length > maxBufferSize) {
@@ -422,6 +389,20 @@ To install FFmpeg on Windows:
     }
 
     return monoBuffer;
+  }
+
+  private isSilent(buffer: Buffer): boolean {
+    // Simple RMS check for PCM16LE
+    let sumSquares = 0;
+    const samples = buffer.length / 2;
+    if (samples === 0) return true;
+    for (let i = 0; i < buffer.length; i += 2) {
+      const s = buffer.readInt16LE(i) / 32768;
+      sumSquares += s * s;
+    }
+    const rms = Math.sqrt(sumSquares / samples);
+    // thresholds similar to web path
+    return rms <= 0.001;
   }
 
   private processTranscription(audioData: AudioData): void {
@@ -495,6 +476,40 @@ To install FFmpeg on Windows:
 
     console.log("❌ FFmpeg not found in any standard location");
     return null;
+  }
+
+  async listWindowsDshowAudioDevices(): Promise<string[]> {
+    if (process.platform !== "win32") return [];
+    const ffmpegPath = this.findFFmpeg();
+    if (!ffmpegPath) return [];
+    return new Promise((resolve) => {
+      const proc = spawn(ffmpegPath, [
+        "-hide_banner",
+        "-f",
+        "dshow",
+        "-list_devices",
+        "true",
+        "-i",
+        "dummy",
+      ]);
+      let stderr = "";
+      proc.stderr?.on("data", (d) => (stderr += d.toString()));
+      proc.on("close", () => {
+        const devices: string[] = [];
+        const lines = stderr.split(/\r?\n/);
+        let inAudioSection = false;
+        for (const line of lines) {
+          if (line.includes("DirectShow audio devices")) inAudioSection = true;
+          else if (line.includes("DirectShow video devices"))
+            inAudioSection = false;
+          else if (inAudioSection) {
+            const m = line.match(/\s+"([^"]+)"/);
+            if (m) devices.push(m[1]);
+          }
+        }
+        resolve(devices);
+      });
+    });
   }
 
   getStatus(): { isCapturing: boolean; config: Required<AudioCaptureConfig> } {

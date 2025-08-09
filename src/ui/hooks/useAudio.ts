@@ -30,38 +30,32 @@ export const useAudio = () => {
         if (webAudioCapture.current?.isActive()) {
           await webAudioCapture.current.stopCapture();
         }
-        await window.ghostframe.capture?.stopAudio?.();
-        await window.ghostframe.capture?.enableTranscription?.(false);
         stopTimer();
       } catch (error) {
         console.error("Error stopping audio capture:", error);
       }
+      setIsRecording(false);
     } else {
       try {
-        let audioStarted = false;
-        if (WebAudioCapture.isSupported()) {
-          if (!webAudioCapture.current) {
-            webAudioCapture.current = new WebAudioCapture();
-          }
-          const result = await webAudioCapture.current.startCapture();
-          if (result.success) {
-            audioStarted = true;
-          } else {
-            alert(
-              `Audio Capture Failed:\n\n${result.error}\n\nFalling back to text-only mode.`
-            );
-          }
+        if (!WebAudioCapture.isSupported()) {
+          alert("Audio capture is not supported in this environment.");
+          return;
         }
-        if (!audioStarted) {
-          await window.ghostframe.capture?.startAudio?.();
+
+        if (!webAudioCapture.current) {
+          webAudioCapture.current = new WebAudioCapture();
         }
-        await window.ghostframe.capture?.enableTranscription?.(true);
-        startTimer();
+        const result = await webAudioCapture.current.startCapture();
+        if (result.success) {
+          startTimer();
+          setIsRecording(true);
+        } else {
+          alert(`Audio Capture Failed:\n\n${result.error}`);
+        }
       } catch (error) {
         console.error("Error starting audio capture:", error);
       }
     }
-    setIsRecording(!isRecording);
   };
 
   useEffect(() => {

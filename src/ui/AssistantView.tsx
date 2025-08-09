@@ -8,7 +8,7 @@ interface AssistantViewProps {
   settings: AppSettings;
   showInput: boolean;
   isAiReady: boolean;
-  onStartConversation?: (userMessage: string) => void;
+  onStartConversation?: (userMessage: string, screenshotData?: string) => void;
 }
 
 export const AssistantView: React.FC<AssistantViewProps> = ({
@@ -18,11 +18,14 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
   onStartConversation = () => {},
 }) => {
   const [inputValue, setInputValue] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
 
   // Screenshot on input interactions (focus/typing/send)
   const lastCaptureAtRef = useRef<number>(0);
   const captureInFlightRef = useRef<boolean>(false);
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastScreenshotDataRef = useRef<string | null>(null);
   const CAPTURE_COOLDOWN_MS = 2000; // minimum gap between screenshots
   const TYPING_DEBOUNCE_MS = 400; // wait for brief pause in typing
 
@@ -34,7 +37,13 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
 
       captureInFlightRef.current = true;
       console.log(`📸 Triggering screenshot due to: ${reason}`);
-      await window.ghostframe.capture?.takeScreenshot?.();
+      const result = await window.ghostframe.capture?.takeScreenshot?.();
+      if (result?.success && (result as any)?.data) {
+        const fmt = (result as any)?.metadata?.format || "jpeg";
+        const data = (result as any).data as string;
+        const dataUrl = `data:image/${fmt};base64,${data}`;
+        lastScreenshotDataRef.current = dataUrl;
+      }
       lastCaptureAtRef.current = Date.now();
     } catch (err) {
       console.warn("Screenshot capture failed:", err);
@@ -56,6 +65,33 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
     };
   }, []);
 
+  // Subscribe to transcription and ai-response to show transient UI states
+  useEffect(() => {
+    const onNewTranscription = () => setIsListening(true);
+    const onTranscriptionUpdate = () => setIsListening(true);
+    const onAiResponse = (_e: any, payload: any) => {
+      if (payload?.text) setIsThinking(true);
+      if (payload?.serverContent?.generationComplete) {
+        setIsListening(false);
+        setIsThinking(false);
+      }
+    };
+    window.ghostframe?.on?.(
+      "new-transcription-conversation",
+      onNewTranscription
+    );
+    window.ghostframe?.on?.("transcription-update", onTranscriptionUpdate);
+    window.ghostframe?.on?.("ai-response", onAiResponse);
+    return () => {
+      window.ghostframe?.off?.(
+        "new-transcription-conversation",
+        onNewTranscription
+      );
+      window.ghostframe?.off?.("transcription-update", onTranscriptionUpdate);
+      window.ghostframe?.off?.("ai-response", onAiResponse);
+    };
+  }, []);
+
   const handleSubmitQuery = async () => {
     if (inputValue.trim() && settings.apiKey) {
       // Ensure we take a fresh screenshot just before sending
@@ -65,7 +101,12 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
       setInputValue("");
 
       // Start new conversation
-      onStartConversation(currentInput);
+      onStartConversation(
+        currentInput,
+        lastScreenshotDataRef.current || undefined
+      );
+      // Clear the last captured screenshot data after attaching it
+      lastScreenshotDataRef.current = null;
 
       try {
         await window.ghostframe.ai?.sendMessage?.(currentInput);
@@ -75,7 +116,7 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
     }
   };
 
-  const handleKeyPress = async (e: React.KeyboardEvent) => {
+  const handleKeyDown = async (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       await triggerScreenshot("enter");
@@ -103,6 +144,19 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
+      {/* Transient capture/ai state badges */}
+      <div className="flex items-center space-x-2">
+        {isListening && (
+          <div className="text-xs px-2 py-1 rounded bg-blue-500/15 text-blue-300 border border-blue-400/20">
+            Listening…
+          </div>
+        )}
+        {isThinking && (
+          <div className="text-xs px-2 py-1 rounded bg-purple-500/15 text-purple-300 border border-purple-400/20">
+            Thinking…
+          </div>
+        )}
+      </div>
       {/* Input Area */}
       {showInput && (
         <div className="bg-black/20 backdrop-blur-xl rounded-xl p-4 border border-white/10">
@@ -111,7 +165,7 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
               type="text"
               value={inputValue}
               onChange={handleInputChange}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               onFocus={handleInputFocus}
               onClick={handleInputClick}
               placeholder={

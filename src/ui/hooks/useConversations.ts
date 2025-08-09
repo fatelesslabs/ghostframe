@@ -5,6 +5,7 @@ export interface Conversation {
   userMessage: string;
   aiResponse: string;
   timestamp: string;
+  screenshotData?: string;
 }
 
 export const useConversations = () => {
@@ -14,61 +15,82 @@ export const useConversations = () => {
   // Track whether a transcription-driven conversation is in progress to avoid duplicates
   const transcriptionActiveRef = useRef<boolean>(false);
   const lastTranscriptionAtRef = useRef<number>(0);
+  // Track which conversation is currently receiving streaming updates
+  const activeConversationIdRef = useRef<string | null>(null);
 
-  const handleAiResponse = useCallback(
-    (response: any) => {
-      // Streamed text parts
-      if (response.text) {
-        setConversations((prev) => {
-          const newConversations = [...prev];
-          if (newConversations[currentConversationIndex]) {
-            newConversations[currentConversationIndex].aiResponse +=
-              response.text;
-          }
-          return newConversations;
-        });
-      }
+  // Normalize transcription to ASCII/English-friendly text
+  const normalizeToEnglish = (text: string): string => {
+    if (!text) return text;
+    const noDiacritics = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return noDiacritics
+      .replace(/[^\x20-\x7E]+/g, " ") // remove non-ASCII printable
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  };
 
-      // Turn-complete signal from AIService (end of this question/answer)
-      if (response?.serverContent?.generationComplete) {
-        transcriptionActiveRef.current = false;
-        lastTranscriptionAtRef.current = Date.now();
-      }
-    },
-    [currentConversationIndex]
-  );
+  const handleAiResponse = useCallback((response: any) => {
+    // Streamed text parts
+    if (response.text) {
+      setConversations((prev) => {
+        const targetId = activeConversationIdRef.current;
+        if (!targetId) return prev;
+        return prev.map((c) =>
+          c.id === targetId
+            ? { ...c, aiResponse: (c.aiResponse || "") + response.text }
+            : c
+        );
+      });
+    }
+
+    // Turn-complete signal from AIService (end of this question/answer)
+    if (response?.serverContent?.generationComplete) {
+      transcriptionActiveRef.current = false;
+      lastTranscriptionAtRef.current = Date.now();
+      // Keep activeConversationId to allow subsequent outputs (e.g., screenshot + text) to continue updating the same conversation
+    }
+  }, []);
 
   useEffect(() => {
     const handleUpdate = (_event: any, responseText: string) => {
       setConversations((prev) => {
-        const newConversations = [...prev];
-        if (newConversations[currentConversationIndex]) {
-          newConversations[currentConversationIndex].aiResponse = responseText;
+        let targetId = activeConversationIdRef.current;
+        if (!targetId && prev.length > 0) {
+          targetId = prev[prev.length - 1].id;
+          activeConversationIdRef.current = targetId;
         }
-        return newConversations;
+        if (!targetId) return prev;
+        const trimmed = (responseText || "").trim();
+        if (!trimmed || trimmed === "[ping]") return prev; // ignore empty/heartbeat
+        return prev.map((c) => {
+          if (c.id !== targetId) return c;
+          if (!c.aiResponse || trimmed.length >= c.aiResponse.length) {
+            return { ...c, aiResponse: trimmed };
+          }
+          return c;
+        });
       });
     };
 
     const handleNewTranscription = (_event: any, transcription: string) => {
       const now = Date.now();
       const IDLE_MS_TO_START_NEW = 2000; // start a new convo only if idle for a bit
+      const normalized = normalizeToEnglish(transcription);
 
       if (
         !transcriptionActiveRef.current ||
         now - lastTranscriptionAtRef.current > IDLE_MS_TO_START_NEW
       ) {
         // Start a new conversation for a fresh transcription turn
-        startNewConversation(transcription, () => {});
+        startNewConversation(normalized, () => {});
         transcriptionActiveRef.current = true;
       } else {
         // A transcription is already active — update the current conversation's user message
         setConversations((prev) => {
-          const newConversations = [...prev];
-          if (newConversations[currentConversationIndex]) {
-            newConversations[currentConversationIndex].userMessage =
-              transcription;
-          }
-          return newConversations;
+          const targetId = activeConversationIdRef.current;
+          if (!targetId) return prev;
+          return prev.map((c) =>
+            c.id === targetId ? { ...c, userMessage: normalized } : c
+          );
         });
       }
       lastTranscriptionAtRef.current = now;
@@ -76,13 +98,13 @@ export const useConversations = () => {
 
     const handleTranscriptionUpdate = (_event: any, transcription: string) => {
       lastTranscriptionAtRef.current = Date.now();
+      const normalized = normalizeToEnglish(transcription);
       setConversations((prev) => {
-        const newConversations = [...prev];
-        if (newConversations[currentConversationIndex]) {
-          newConversations[currentConversationIndex].userMessage =
-            transcription;
-        }
-        return newConversations;
+        const targetId = activeConversationIdRef.current;
+        if (!targetId) return prev;
+        return prev.map((c) =>
+          c.id === targetId ? { ...c, userMessage: normalized } : c
+        );
       });
     };
 
@@ -113,14 +135,20 @@ export const useConversations = () => {
         );
       }
     };
-  }, [handleAiResponse, currentConversationIndex]);
+  }, [handleAiResponse]);
 
-  const startNewConversation = (userMessage: string, callback: () => void) => {
+  const startNewConversation = (
+    userMessage: string,
+    callback: () => void,
+    opts?: { screenshotData?: string }
+  ) => {
+    const id = Date.now().toString();
     const newConversation: Conversation = {
-      id: Date.now().toString(),
+      id,
       userMessage,
       aiResponse: "",
       timestamp: new Date().toISOString(),
+      screenshotData: opts?.screenshotData,
     };
     setConversations((prev) => {
       const updated = [...prev, newConversation];
@@ -128,6 +156,7 @@ export const useConversations = () => {
       setCurrentConversationIndex(updated.length - 1);
       return updated;
     });
+    activeConversationIdRef.current = id;
     callback();
   };
 
@@ -157,7 +186,21 @@ export const useConversations = () => {
 
   const handleCopyResponse = async (text: string, messageId: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      // Extract fenced code blocks if present; otherwise copy the whole text
+      const codeBlockRegex = /```[\s\S]*?```/g;
+      const codeBlocks = text.match(codeBlockRegex);
+      const toCopy = codeBlocks
+        ? codeBlocks
+            .map((block) =>
+              block.replace(/^```[a-zA-Z0-9]*\n?|```$/g, "").trim()
+            )
+            .join("\n\n")
+        : text;
+      if (window.ghostframe?.clipboard?.writeText) {
+        await window.ghostframe.clipboard.writeText(toCopy);
+      } else {
+        await navigator.clipboard.writeText(toCopy);
+      }
       setCopiedMessageId(messageId);
       setTimeout(() => setCopiedMessageId(null), 2000);
     } catch (error) {

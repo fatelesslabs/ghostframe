@@ -225,6 +225,14 @@ ipcMain.handle(
     return { success: true };
   }
 );
+ipcMain.handle("capture:getAudioDevices", async () => {
+  try {
+    const devices = await audioCaptureService.listWindowsDshowAudioDevices();
+    return { success: true, devices };
+  } catch (e) {
+    return { success: false, error: (e as Error).message, devices: [] };
+  }
+});
 ipcMain.handle("capture:takeScreenshot", async () => {
   const result = await screenshotService.takeScreenshot();
   if (result.success && result.data) {

@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react';
-import type { AppSettings } from '../SettingsView';
+import { useState, useEffect } from "react";
+import type { AppSettings } from "../SettingsView";
 
 export const useSettings = () => {
   const [settings, setSettings] = useState<AppSettings>({
-    provider: 'gemini',
-    apiKey: '',
+    provider: "gemini",
+    apiKey: "",
     customInstructions:
       "You are a helpful assistant. Analyze the screen and answer the user's question concisely.",
-    profileType: 'default',
-    profile: 'interview',
-    googleSearchEnabled: true,
+    profileType: "default",
+    profile: "interview",
+    googleSearchEnabled: false,
     windowOpacity: 85,
   });
 
@@ -25,7 +25,7 @@ export const useSettings = () => {
           }));
         }
       } catch (error) {
-        console.error('Failed to load stored settings:', error);
+        console.error("Failed to load stored settings:", error);
       }
     };
 
