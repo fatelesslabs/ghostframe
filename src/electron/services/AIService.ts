@@ -111,6 +111,8 @@ export class AIService {
   private currentSessionId: string | null = null;
   private currentTranscription: string = "";
   private messageBuffer: string = "";
+  private transcriptionInProgress: boolean = false;
+  private lastNewTranscriptionEventAt: number = 0;
 
   // Enhanced session management inspired by cheating-daddy
   private isInitializingSession = false;
@@ -409,19 +411,35 @@ export class AIService {
 
             // Handle transcription input (like cheating-daddy)
             if (message.serverContent?.inputTranscription?.text) {
-              this.currentTranscription +=
+              const incomingText =
                 message.serverContent.inputTranscription.text;
-              console.log(
-                `🎤 Transcription received: "${message.serverContent.inputTranscription.text}"`
-              );
+              const now = Date.now();
+              if (!this.transcriptionInProgress) {
+                // Throttle to avoid duplicate conversation starts from bursty first fragments
+                if (now - this.lastNewTranscriptionEventAt > 500) {
+                  this.transcriptionInProgress = true;
+                  this.currentTranscription = incomingText;
+                  if (windows.length > 0) {
+                    windows[0].webContents.send(
+                      "new-transcription-conversation",
+                      this.currentTranscription
+                    );
+                  }
+                  this.lastNewTranscriptionEventAt = now;
+                } else {
+                  // Within throttle window: treat as continuation
+                  this.currentTranscription += incomingText;
+                }
+              } else {
+                this.currentTranscription += incomingText;
+              }
+              console.log(`🎤 Transcription received: "${incomingText}"`);
               console.log(
                 `🎤 Full transcription so far: "${this.currentTranscription}"`
               );
-
-              // Send transcription updates to renderer (like cheating-daddy)
               if (windows.length > 0) {
                 windows[0].webContents.send(
-                  "new-transcription-conversation",
+                  "transcription-update",
                   this.currentTranscription
                 );
               }
@@ -465,6 +483,8 @@ export class AIService {
                 this.currentTranscription = ""; // Reset for next turn
               }
               this.messageBuffer = "";
+              this.transcriptionInProgress = false;
+              this.lastNewTranscriptionEventAt = Date.now();
 
               if (windows.length > 0) {
                 console.log("Sending generationComplete flag");

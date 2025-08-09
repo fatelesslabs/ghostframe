@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export interface Conversation {
   id: string;
@@ -11,9 +11,13 @@ export const useConversations = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationIndex, setCurrentConversationIndex] = useState(-1);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  // Track whether a transcription-driven conversation is in progress to avoid duplicates
+  const transcriptionActiveRef = useRef<boolean>(false);
+  const lastTranscriptionAtRef = useRef<number>(0);
 
   const handleAiResponse = useCallback(
     (response: any) => {
+      // Streamed text parts
       if (response.text) {
         setConversations((prev) => {
           const newConversations = [...prev];
@@ -24,13 +28,18 @@ export const useConversations = () => {
           return newConversations;
         });
       }
+
+      // Turn-complete signal from AIService (end of this question/answer)
+      if (response?.serverContent?.generationComplete) {
+        transcriptionActiveRef.current = false;
+        lastTranscriptionAtRef.current = Date.now();
+      }
     },
     [currentConversationIndex]
   );
 
   useEffect(() => {
     const handleUpdate = (_event: any, responseText: string) => {
-      console.log("📨 Received update-response event:", responseText);
       setConversations((prev) => {
         const newConversations = [...prev];
         if (newConversations[currentConversationIndex]) {
@@ -41,41 +50,67 @@ export const useConversations = () => {
     };
 
     const handleNewTranscription = (_event: any, transcription: string) => {
-      console.log(
-        "🎤 Received new-transcription-conversation event:",
-        transcription
-      );
-      startNewConversation(transcription, () => {});
+      const now = Date.now();
+      const IDLE_MS_TO_START_NEW = 2000; // start a new convo only if idle for a bit
+
+      if (
+        !transcriptionActiveRef.current ||
+        now - lastTranscriptionAtRef.current > IDLE_MS_TO_START_NEW
+      ) {
+        // Start a new conversation for a fresh transcription turn
+        startNewConversation(transcription, () => {});
+        transcriptionActiveRef.current = true;
+      } else {
+        // A transcription is already active — update the current conversation's user message
+        setConversations((prev) => {
+          const newConversations = [...prev];
+          if (newConversations[currentConversationIndex]) {
+            newConversations[currentConversationIndex].userMessage =
+              transcription;
+          }
+          return newConversations;
+        });
+      }
+      lastTranscriptionAtRef.current = now;
     };
 
-    const aiResponseHandler = (_event: any, response: any) => {
-      console.log("🤖 Received ai-response event:", response);
-      handleAiResponse(response);
+    const handleTranscriptionUpdate = (_event: any, transcription: string) => {
+      lastTranscriptionAtRef.current = Date.now();
+      setConversations((prev) => {
+        const newConversations = [...prev];
+        if (newConversations[currentConversationIndex]) {
+          newConversations[currentConversationIndex].userMessage =
+            transcription;
+        }
+        return newConversations;
+      });
     };
+
+    const aiResponseHandler = (_event: any, response: any) =>
+      handleAiResponse(response);
 
     if (window.ghostframe?.on) {
-      console.log("🔗 Registering conversation event listeners...");
       window.ghostframe.on("ai-response", aiResponseHandler);
       window.ghostframe.on("update-response", handleUpdate);
       window.ghostframe.on(
         "new-transcription-conversation",
         handleNewTranscription
       );
-      console.log("✅ Conversation event listeners registered");
-    } else {
-      console.error("❌ window.ghostframe.on is not available");
+      window.ghostframe.on("transcription-update", handleTranscriptionUpdate);
     }
 
     return () => {
       if (window.ghostframe?.off) {
-        console.log("🔗 Unregistering conversation event listeners...");
         window.ghostframe.off("ai-response", aiResponseHandler);
         window.ghostframe.off("update-response", handleUpdate);
         window.ghostframe.off(
           "new-transcription-conversation",
           handleNewTranscription
         );
-        console.log("✅ Conversation event listeners unregistered");
+        window.ghostframe.off(
+          "transcription-update",
+          handleTranscriptionUpdate
+        );
       }
     };
   }, [handleAiResponse, currentConversationIndex]);
@@ -88,9 +123,10 @@ export const useConversations = () => {
       timestamp: new Date().toISOString(),
     };
     setConversations((prev) => {
-      const newConversations = [...prev, newConversation];
-      setCurrentConversationIndex(newConversations.length - 1);
-      return newConversations;
+      const updated = [...prev, newConversation];
+      // Ensure index matches the newly appended item
+      setCurrentConversationIndex(updated.length - 1);
+      return updated;
     });
     callback();
   };
