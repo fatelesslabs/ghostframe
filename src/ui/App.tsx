@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import {
   Mic,
@@ -16,9 +16,7 @@ import {
 } from "lucide-react";
 import { AutomationView } from "./AutomationView";
 import { SettingsView } from "./SettingsView";
-import type { AppSettings } from "./SettingsView";
 import { AssistantView } from "./AssistantView";
-import { WebAudioCapture } from "./WebAudioCapture";
 import {
   Tooltip,
   TooltipContent,
@@ -29,428 +27,42 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface Conversation {
-  id: string;
-  userMessage: string;
-  aiResponse: string;
-  timestamp: string;
-}
+import { useSettings } from "./hooks/useSettings";
+import { useAI } from "./hooks/useAI";
+import { useConversations } from "./hooks/useConversations";
+import { useAudio } from "./hooks/useAudio";
+import { useWindowEvents } from "./hooks/useWindowEvents";
+import { useScreenshots } from "./hooks/useScreenshots";
 
 const App = () => {
   const [mode, setMode] = useState<"assistant" | "automation" | "settings">(
     "assistant"
   );
-  const [settings, setSettings] = useState<AppSettings>({
-    provider: "gemini",
-    apiKey: "",
-    customInstructions:
-      "You are a helpful assistant. Analyze the screen and answer the user's question concisely.",
-    profileType: "default",
-    profile: "interview",
-    googleSearchEnabled: true,
-    windowOpacity: 85,
-  });
-  const [isRecording, setIsRecording] = useState(false);
-  const [isContentProtected, setIsContentProtected] = useState(false);
   const [showInput, setShowInput] = useState(false);
-  const [isAiReady, setIsAiReady] = useState(false);
-  const [aiStatus, setAiStatus] = useState<
-    "connected" | "connecting" | "disconnected" | "error"
-  >("disconnected");
-  const [timer, setTimer] = useState("00:00");
 
-  // Proper conversation history system like Cluely
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [currentConversationIndex, setCurrentConversationIndex] = useState(-1);
-  const [pendingUserMessage, setPendingUserMessage] = useState("");
-  const [streamingResponse, setStreamingResponse] = useState("");
-  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-
-  const intervalRef = useRef<number | null>(null);
-  const initializingRef = useRef<boolean>(false);
-  const webAudioCapture = useRef<WebAudioCapture | null>(null);
-  const screenshotTickerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        // Load stored AI configuration
-        const storedConfig = await window.ghostframe.ai.getStoredConfig?.();
-        if (storedConfig && storedConfig.apiKey) {
-          setSettings((prev) => ({
-            ...prev,
-            provider: storedConfig.provider || prev.provider,
-            apiKey: storedConfig.apiKey || prev.apiKey,
-          }));
-        }
-      } catch (error) {
-        console.error("Failed to load stored settings:", error);
-      }
-    };
-
-    loadSettings();
-  }, []);
-
-  useEffect(() => {
-    const initializeAi = async () => {
-      if (settings.apiKey && !initializingRef.current) {
-        initializingRef.current = true;
-        try {
-          console.log("Attempting to initialize AI...");
-          const result = await window.ghostframe.ai.initialize?.({
-            provider: settings.provider,
-            apiKey: settings.apiKey,
-            customPrompt: settings.customInstructions,
-            profile: settings.profile,
-            googleSearchEnabled: settings.googleSearchEnabled,
-          });
-          console.log("AI initialization returned:", result);
-          setIsAiReady(result?.success || false);
-          if (!result?.success) {
-            console.error("AI initialization failed:", result?.error);
-          }
-        } catch (error) {
-          console.error(
-            "An unexpected error occurred during AI initialization:",
-            error
-          );
-          setIsAiReady(false);
-        } finally {
-          initializingRef.current = false;
-        }
-      }
-    };
-
-    initializeAi();
-  }, [
-    settings.apiKey,
-    settings.provider,
-    settings.customInstructions,
-    settings.profile,
-    settings.googleSearchEnabled,
-  ]);
-
-  useEffect(() => {
-    const handleClickThroughToggle = (_event: any, enabled: boolean) => {
-      // Click through functionality removed for simplicity
-      console.log("Click through toggle:", enabled);
-    };
-
-    const handleContentProtectionToggle = (_event: any, enabled: boolean) => {
-      setIsContentProtected(enabled);
-    };
-
-    const handleTranscriptionUpdate = (_event: any, _text: string) => {
-      // Live transcription no longer used - replaced with textarea
-    };
-
-    const handleAiResponse = (_event: any, response: any) => {
-      console.log("🤖 AI Response received in UI:", response);
-      if (response.text) {
-        console.log("📝 AI Text Response:", response.text);
-
-        // If we have a pending user message, create a new conversation or update existing streaming response
-        if (pendingUserMessage) {
-          if (streamingResponse) {
-            // Accumulate the response text instead of replacing it
-            setStreamingResponse((prev) => prev + response.text);
-          } else {
-            // Start streaming response
-            setStreamingResponse(response.text);
-          }
-        } else {
-          // Update streaming response for existing conversation
-          setStreamingResponse((prev) => prev + response.text);
-        }
-
-        // Auto-copy to clipboard for quick pasting
-        navigator.clipboard.writeText(response.text).catch(() => {});
-      }
-      if (response.serverContent?.generationComplete) {
-        console.log("✅ AI Response generation complete");
-
-        // Finalize streaming response if we have one
-        if (pendingUserMessage && streamingResponse) {
-          const finalResponse = streamingResponse + (response.text || "");
-          const newConversation: Conversation = {
-            id: Date.now().toString(),
-            userMessage: pendingUserMessage,
-            aiResponse: finalResponse,
-            timestamp: new Date().toISOString(),
-          };
-
-          setConversations((prev) => [...prev, newConversation]);
-          setCurrentConversationIndex((prev) => prev + 1);
-          setPendingUserMessage("");
-          setStreamingResponse("");
-        }
-      }
-    };
-
-    const handleUpdateResponse = (_event: any, responseText: string) => {
-      console.log("📝 Cumulative AI Response:", responseText);
-      // Use the cumulative response directly instead of appending
-      setStreamingResponse(responseText);
-    };
-
-    const loadContentProtectionStatus = async () => {
-      try {
-        const status =
-          await window.ghostframe.window?.getContentProtectionStatus?.();
-        if (status) {
-          setIsContentProtected(status.enabled);
-        }
-      } catch (error) {
-        console.error("Failed to load content protection status:", error);
-      }
-    };
-
-    if (window.ghostframe?.on) {
-      window.ghostframe.on("click-through-toggled", handleClickThroughToggle);
-      window.ghostframe.on(
-        "content-protection-toggled",
-        handleContentProtectionToggle
-      );
-      window.ghostframe.on("transcription-update", handleTranscriptionUpdate);
-      window.ghostframe.on("ai-response", handleAiResponse);
-      window.ghostframe.on("update-response", handleUpdateResponse);
-    }
-
-    loadContentProtectionStatus();
-
-    return () => {
-      if (window.ghostframe?.off) {
-        window.ghostframe.off(
-          "click-through-toggled",
-          handleClickThroughToggle
-        );
-        window.ghostframe.off(
-          "content-protection-toggled",
-          handleContentProtectionToggle
-        );
-        window.ghostframe.off(
-          "transcription-update",
-          handleTranscriptionUpdate
-        );
-        window.ghostframe.off("ai-response", handleAiResponse);
-        window.ghostframe.off("update-response", handleUpdateResponse);
-      }
-      if (intervalRef.current) clearInterval(intervalRef.current);
-
-      // Clean up WebAudioCapture on unmount
-      if (webAudioCapture.current?.isActive()) {
-        webAudioCapture.current.stopCapture();
-      }
-    };
-  }, []);
-
-  // Keyboard controls for window movement and conversation navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
-          case "ArrowUp":
-            e.preventDefault();
-            window.ghostframe.window?.move?.(0, -20);
-            break;
-          case "ArrowDown":
-            e.preventDefault();
-            window.ghostframe.window?.move?.(0, 20);
-            break;
-          case "ArrowLeft":
-            e.preventDefault();
-            // Navigate to previous conversation if available
-            if (currentConversationIndex > 0) {
-              setCurrentConversationIndex(currentConversationIndex - 1);
-            } else {
-              window.ghostframe.window?.move?.(-20, 0);
-            }
-            break;
-          case "ArrowRight":
-            e.preventDefault();
-            // Navigate to next conversation if available
-            if (currentConversationIndex < conversations.length - 1) {
-              setCurrentConversationIndex(currentConversationIndex + 1);
-            } else {
-              window.ghostframe.window?.move?.(20, 0);
-            }
-            break;
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentConversationIndex, conversations.length]);
-
-  const startTimer = () => {
-    let seconds = 0;
-    intervalRef.current = window.setInterval(() => {
-      seconds++;
-      const mins = Math.floor(seconds / 60)
-        .toString()
-        .padStart(2, "0");
-      const secs = (seconds % 60).toString().padStart(2, "0");
-      setTimer(`${mins}:${secs}`);
-    }, 1000);
-  };
-
-  const stopTimer = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setTimer("00:00");
-  };
-
-  const handleRecordToggle = async () => {
-    if (isRecording) {
-      // Stop recording
-      try {
-        // Stop web-based audio capture if active
-        if (webAudioCapture.current?.isActive()) {
-          await webAudioCapture.current.stopCapture();
-        }
-
-        // Stop main process audio capture (fallback)
-        await window.ghostframe.capture?.stopAudio?.();
-        await window.ghostframe.capture?.enableTranscription?.(false);
-
-        stopTimer();
-      } catch (error) {
-        console.error("Error stopping audio capture:", error);
-      }
-    } else {
-      // Start recording
-      try {
-        let audioStarted = false;
-
-        // Try browser-based audio capture first (loopback audio for Windows)
-        if (WebAudioCapture.isSupported()) {
-          console.log("🎤 Attempting Windows loopback audio capture...");
-          console.log("� Will request microphone access for system audio");
-
-          if (!webAudioCapture.current) {
-            webAudioCapture.current = new WebAudioCapture();
-          }
-
-          const result = await webAudioCapture.current.startCapture();
-          if (result.success) {
-            console.log("✅ Windows loopback audio capture started");
-            audioStarted = true;
-          } else {
-            console.warn(
-              "❌ Windows loopback audio capture failed:",
-              result.error
-            );
-            // Show user-friendly error in UI
-            alert(
-              `Audio Capture Failed:\n\n${result.error}\n\nFalling back to text-only mode.`
-            );
-          }
-        }
-
-        // Fallback to main process audio capture if browser method failed
-        if (!audioStarted) {
-          console.log("🔄 Falling back to main process audio capture...");
-          await window.ghostframe.capture?.startAudio?.();
-        }
-
-        await window.ghostframe.capture?.enableTranscription?.(true);
-        startTimer();
-      } catch (error) {
-        console.error("Error starting audio capture:", error);
-      }
-    }
-    setIsRecording(!isRecording);
-  };
-
-  const handleToggleContentProtection = async () => {
-    try {
-      const result =
-        await window.ghostframe.window?.toggleContentProtection?.();
-      if (result) {
-        setIsContentProtected(result.enabled);
-      }
-    } catch (error) {
-      console.error("Failed to toggle content protection:", error);
-    }
-  };
-
-  // Start/stop 1s screenshot loop while mic is recording
-  useEffect(() => {
-    const clearTicker = () => {
-      if (screenshotTickerRef.current) {
-        clearInterval(screenshotTickerRef.current);
-        screenshotTickerRef.current = null;
-      }
-    };
-
-    if (isRecording) {
-      // begin 1-second screenshots for live context
-      clearTicker();
-      screenshotTickerRef.current = window.setInterval(() => {
-        window.ghostframe.capture?.takeScreenshot?.();
-      }, 1000);
-    } else {
-      clearTicker();
-    }
-
-    return clearTicker;
-  }, [isRecording]);
-
-  // Helper functions for conversation navigation
-  const getCurrentConversation = () => {
-    return conversations.length > 0 && currentConversationIndex >= 0
-      ? conversations[currentConversationIndex]
-      : null;
-  };
-
-  const getConversationCounter = () => {
-    return conversations.length > 0
-      ? `${currentConversationIndex + 1}/${conversations.length}`
-      : "";
-  };
-
-  const navigateToPreviousConversation = () => {
-    if (currentConversationIndex > 0) {
-      setCurrentConversationIndex(currentConversationIndex - 1);
-    }
-  };
-
-  const navigateToNextConversation = () => {
-    if (currentConversationIndex < conversations.length - 1) {
-      setCurrentConversationIndex(currentConversationIndex + 1);
-    }
-  };
-
-  // Function to start a new conversation
-  const startNewConversation = (userMessage: string) => {
-    setPendingUserMessage(userMessage);
-    setStreamingResponse("");
-  };
-
-  // Update AI status based on connection state
-  useEffect(() => {
-    if (isAiReady) {
-      setAiStatus("connected");
-    } else if (initializingRef.current) {
-      setAiStatus("connecting");
-    } else {
-      setAiStatus("disconnected");
-    }
-  }, [isAiReady]);
-
-  // Send message function
-
-  // Copy function
-  const handleCopyResponse = async (text: string, messageId: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedMessageId(messageId);
-      setTimeout(() => setCopiedMessageId(null), 2000);
-    } catch (error) {
-      console.error("Failed to copy text:", error);
-    }
-  };
+  const { settings, setSettings } = useSettings();
+  const { isAiReady, aiStatus } = useAI(settings);
+  const {
+    conversations,
+    copiedMessageId,
+    startNewConversation,
+    getCurrentConversation,
+    getConversationCounter,
+    navigateToPreviousConversation,
+    navigateToNextConversation,
+    handleCopyResponse,
+    currentConversationIndex,
+    setCurrentConversationIndex
+  } = useConversations();
+  const { isRecording, timer, handleRecordToggle } = useAudio();
+  const { isContentProtected, handleToggleContentProtection } = useWindowEvents({
+    currentConversationIndex,
+    conversationsLength: conversations.length,
+    navigateToPreviousConversation,
+    navigateToNextConversation,
+    setCurrentConversationIndex
+  });
+  useScreenshots(isRecording);
 
   return (
     <TooltipProvider>
@@ -748,7 +360,7 @@ const App = () => {
             {mode === "assistant" && (
               <>
                 {/* Current Conversation Display (like Cluely) */}
-                {getCurrentConversation() ? (
+                {getCurrentConversation() && (
                   <div className="space-y-4 mb-4">
                     {/* User Message */}
                     <div className="bg-blue-500/10 backdrop-blur-xl rounded-xl p-4 border border-blue-400/20">
@@ -789,28 +401,50 @@ const App = () => {
                             </Badge>
                           </div>
                           <div className="relative group">
-                            <div className="min-h-[120px] max-h-[400px] overflow-y-auto prose prose-sm bg-transparent p-0 text-white/80 max-w-full overflow-x-hidden break-words">
-                              <ReactMarkdown
-                                components={{
-                                  code: ({ children, className }) => {
-                                    const isInline = !className;
-                                    return isInline ? (
-                                      <code className="bg-white/10 text-white/90 px-1.5 py-0.5 rounded text-xs font-mono">
-                                        {children}
-                                      </code>
-                                    ) : (
-                                      <pre className="bg-black/40 border border-white/10 rounded-lg p-3 overflow-x-auto text-xs">
-                                        <code className="text-white/90 font-mono text-xs leading-relaxed">
+                            {getCurrentConversation()?.aiResponse ? (
+                              <div className="min-h-[120px] max-h-[400px] overflow-y-auto prose prose-sm bg-transparent p-0 text-white/80 max-w-full overflow-x-hidden break-words">
+                                <ReactMarkdown
+                                  key={getCurrentConversation()?.id}
+                                  components={{
+                                    code: ({ children, className }) => {
+                                      const isInline = !className;
+                                      return isInline ? (
+                                        <code className="bg-white/10 text-white/90 px-1.5 py-0.5 rounded text-xs font-mono">
                                           {children}
                                         </code>
-                                      </pre>
-                                    );
-                                  },
-                                }}
-                              >
-                                {getCurrentConversation()?.aiResponse || ""}
-                              </ReactMarkdown>
-                            </div>
+                                      ) : (
+                                        <pre className="bg-black/40 border border-white/10 rounded-lg p-3 overflow-x-auto text-xs">
+                                          <code className="text-white/90 font-mono text-xs leading-relaxed">
+                                            {children}
+                                          </code>
+                                        </pre>
+                                      );
+                                    },
+                                  }}
+                                >
+                                  {getCurrentConversation()?.aiResponse || ""}
+                                </ReactMarkdown>
+                              </div>
+                            ) : (
+                              <div className="flex-1 space-y-2">
+                                <div className="flex items-center justify-end mb-2">
+                                  <div className="flex space-x-1">
+                                    <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" />
+                                    <div
+                                      className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"
+                                      style={{ animationDelay: "0.1s" }}
+                                    />
+                                    <div
+                                      className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"
+                                      style={{ animationDelay: "0.2s" }}
+                                    />
+                                  </div>
+                                </div>
+                                <Skeleton className="h-4 w-full bg-white/10" />
+                                <Skeleton className="h-4 w-3/4 bg-white/10" />
+                                <Skeleton className="h-4 w-1/2 bg-white/10" />
+                              </div>
+                            )}
                             <button
                               onClick={() =>
                                 handleCopyResponse(
@@ -829,87 +463,6 @@ const App = () => {
                             </button>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                {/* Streaming Response */}
-                {streamingResponse && (
-                  <div className="bg-purple-500/10 backdrop-blur-xl rounded-xl p-4 border border-purple-400/20 mb-4">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-8 h-8 bg-purple-500/30 backdrop-blur-sm rounded-full flex items-center justify-center border border-purple-400/50 flex-shrink-0">
-                        <Bot className="w-4 h-4 text-purple-300" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-end mb-2">
-                          <div className="flex space-x-1">
-                            <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" />
-                            <div
-                              className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"
-                              style={{ animationDelay: "0.1s" }}
-                            />
-                            <div
-                              className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"
-                              style={{ animationDelay: "0.2s" }}
-                            />
-                          </div>
-                        </div>
-                        <div className="min-h-[100px] max-h-[400px] overflow-y-auto prose prose-sm bg-transparent p-0 text-white/80 max-w-full overflow-x-hidden break-words">
-                          {streamingResponse ? (
-                            <ReactMarkdown
-                              components={{
-                                code: ({ children, className }) => {
-                                  const isInline = !className;
-                                  return isInline ? (
-                                    <code className="bg-white/10 text-white/90 px-1.5 py-0.5 rounded text-xs font-mono">
-                                      {children}
-                                    </code>
-                                  ) : (
-                                    <pre className="bg-black/40 border border-white/10 rounded-lg p-3 overflow-x-auto text-xs">
-                                      <code className="text-white/90 font-mono text-xs leading-relaxed">
-                                        {children}
-                                      </code>
-                                    </pre>
-                                  );
-                                },
-                              }}
-                            >
-                              {streamingResponse}
-                            </ReactMarkdown>
-                          ) : (
-                            <p className="text-white/60">AI is thinking...</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Show skeleton while waiting for response */}
-                {pendingUserMessage && !streamingResponse && (
-                  <div className="bg-purple-500/10 backdrop-blur-xl rounded-xl p-4 border border-purple-400/20 mb-4">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-8 h-8 bg-purple-500/30 backdrop-blur-sm rounded-full flex items-center justify-center border border-purple-400/50 flex-shrink-0">
-                        <Bot className="w-4 h-4 text-purple-300" />
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center justify-end mb-2">
-                          <div className="flex space-x-1">
-                            <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" />
-                            <div
-                              className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"
-                              style={{ animationDelay: "0.1s" }}
-                            />
-                            <div
-                              className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"
-                              style={{ animationDelay: "0.2s" }}
-                            />
-                          </div>
-                        </div>
-                        <Skeleton className="h-4 w-full bg-white/10" />
-                        <Skeleton className="h-4 w-3/4 bg-white/10" />
-                        <Skeleton className="h-4 w-1/2 bg-white/10" />
                       </div>
                     </div>
                   </div>

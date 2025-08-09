@@ -1,10 +1,12 @@
 @import "tailwindcss";
+@import url("https://fonts.cdnfonts.com/css/pp-neue-montreal");
 
 /* Base styles for dark transparent Electron app */
 body {
   background: transparent;
   color: #e5e7eb;
   font-weight: 500;
+  font-family: "PP Neue Montreal", sans-serif;
 }
 
 /* Essential Electron window controls */
@@ -15,13 +17,20 @@ body {
 }
 
 /* Make interactive elements non-draggable */
-button, input, textarea, select, a, [role="button"] {
+button,
+input,
+textarea,
+select,
+a,
+[role="button"] {
   -webkit-app-region: no-drag;
   cursor: pointer;
 }
 
 /* Content areas should allow interaction */
-.content-area, .assistant-controls, .automation-controls {
+.content-area,
+.assistant-controls,
+.automation-controls {
   -webkit-app-region: no-drag;
 }
 
@@ -49,12 +58,14 @@ button, input, textarea, select, a, [role="button"] {
 
 /* Custom scrollbar styling - inspired by cheating-daddy */
 /* Remove scrollbar from body and main containers */
-body, .app-container {
+body,
+.app-container {
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
 }
 
-body::-webkit-scrollbar, .app-container::-webkit-scrollbar {
+body::-webkit-scrollbar,
+.app-container::-webkit-scrollbar {
   display: none; /* Chrome/Safari */
 }
 
@@ -92,12 +103,13 @@ textarea {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.2);
 }
-body, html {
+body,
+html {
   overflow: hidden;
 }
 
 /* Apply scrollbar only to specific content areas */
-.prose, 
+.prose,
 .overflow-y-auto,
 [class*="overflow-y-auto"] {
   scrollbar-width: thin;
@@ -171,23 +183,35 @@ body, html {
   overflow-wrap: break-word;
 }
 
-.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
   color: rgba(255, 255, 255, 0.95);
   margin-top: 1.5em;
   margin-bottom: 0.75em;
   font-weight: 600;
 }
 
-.prose h1 { font-size: 1.5em; }
-.prose h2 { font-size: 1.3em; }
-.prose h3 { font-size: 1.15em; }
+.prose h1 {
+  font-size: 1.5em;
+}
+.prose h2 {
+  font-size: 1.3em;
+}
+.prose h3 {
+  font-size: 1.15em;
+}
 
 .prose p {
   margin-bottom: 1em;
   color: rgba(255, 255, 255, 0.85);
 }
 
-.prose ul, .prose ol {
+.prose ul,
+.prose ol {
   margin: 1em 0;
   padding-left: 1.5em;
 }
@@ -197,12 +221,14 @@ body, html {
   color: rgba(255, 255, 255, 0.85);
 }
 
-.prose strong, .prose b {
+.prose strong,
+.prose b {
   color: rgba(255, 255, 255, 0.95);
   font-weight: 600;
 }
 
-.prose em, .prose i {
+.prose em,
+.prose i {
   color: rgba(255, 255, 255, 0.9);
   font-style: italic;
 }
@@ -250,7 +276,7 @@ body, html {
   padding: 0.2em 0.4em;
   border-radius: 4px;
   font-size: 0.875em;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
   word-break: break-word;
   white-space: pre-wrap;
 }
@@ -269,7 +295,8 @@ body, html {
   margin: 1.5em 0;
 }
 
-.prose th, .prose td {
+.prose th,
+.prose td {
   border: 1px solid rgba(255, 255, 255, 0.2);
   padding: 0.5em 0.75em;
   text-align: left;
