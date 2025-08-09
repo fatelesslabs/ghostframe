@@ -55,8 +55,8 @@ export interface GhostframeAPI {
 
   // Clipboard
   clipboard: {
-    writeText: (text: string) => Promise<void>;
-    readText: () => Promise<string>;
+    writeText: (text: string) => void;
+    readText: () => string;
   };
 
   // Events
@@ -128,8 +128,8 @@ const ghostframeAPI: GhostframeAPI = {
   },
 
   clipboard: {
-    writeText: (text: string) => Promise.resolve(clipboard.writeText(text)),
-    readText: () => Promise.resolve(clipboard.readText()),
+    writeText: (text: string) => clipboard.writeText(text),
+    readText: () => clipboard.readText(),
   },
 
   on: (channel, callback) => {

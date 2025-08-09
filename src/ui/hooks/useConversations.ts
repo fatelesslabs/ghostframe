@@ -186,25 +186,87 @@ export const useConversations = () => {
 
   const handleCopyResponse = async (text: string, messageId: string) => {
     try {
-      // Extract fenced code blocks if present; otherwise copy the whole text
-      const codeBlockRegex = /```[\s\S]*?```/g;
-      const codeBlocks = text.match(codeBlockRegex);
-      const toCopy = codeBlocks
-        ? codeBlocks
-            .map((block) =>
-              block.replace(/^```[a-zA-Z0-9]*\n?|```$/g, "").trim()
-            )
-            .join("\n\n")
-        : text;
+      // More robustly extract fenced code blocks
+      const codeBlockRegex = /```(?:[a-zA-Z0-9]+)?\n([\s\S]+?)\n```/g;
+      const codeBlocks = [...text.matchAll(codeBlockRegex)].map(
+        (match) => match[1]
+      );
+      const toCopy = codeBlocks.length > 0 ? codeBlocks.join("\n\n") : text;
+
+      // Try Ghostframe clipboard API first
       if (window.ghostframe?.clipboard?.writeText) {
-        await window.ghostframe.clipboard.writeText(toCopy);
-      } else {
-        await navigator.clipboard.writeText(toCopy);
+        try {
+          window.ghostframe.clipboard.writeText(toCopy);
+          setCopiedMessageId(messageId);
+          setTimeout(() => setCopiedMessageId(null), 2000);
+          return;
+        } catch (ghostframeError) {
+          console.warn(
+            "Ghostframe clipboard failed, trying web API:",
+            ghostframeError
+          );
+        }
       }
-      setCopiedMessageId(messageId);
-      setTimeout(() => setCopiedMessageId(null), 2000);
+
+      // Try web Clipboard API with permission check
+      if (navigator.clipboard?.writeText) {
+        try {
+          // Check if we have clipboard write permission
+          const permissionStatus = await navigator.permissions?.query?.({
+            name: "clipboard-write" as PermissionName,
+          });
+          if (
+            permissionStatus?.state === "granted" ||
+            permissionStatus?.state === "prompt"
+          ) {
+            await navigator.clipboard.writeText(toCopy);
+            setCopiedMessageId(messageId);
+            setTimeout(() => setCopiedMessageId(null), 2000);
+            return;
+          }
+        } catch (webClipboardError) {
+          console.warn(
+            "Web Clipboard API failed, using fallback:",
+            webClipboardError
+          );
+        }
+      }
+
+      // Final fallback using document.execCommand (works in more contexts)
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = toCopy;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        textArea.style.opacity = "0";
+        textArea.style.pointerEvents = "none";
+        document.body.appendChild(textArea);
+
+        // Focus and select the text
+        textArea.focus();
+        textArea.select();
+        textArea.setSelectionRange(0, 99999); // For mobile devices
+
+        // Attempt to copy
+        const successful = document.execCommand("copy");
+        document.body.removeChild(textArea);
+
+        if (successful) {
+          setCopiedMessageId(messageId);
+          setTimeout(() => setCopiedMessageId(null), 2000);
+          return;
+        } else {
+          throw new Error("document.execCommand('copy') returned false");
+        }
+      } catch (fallbackError) {
+        console.error("Fallback clipboard method failed:", fallbackError);
+        throw fallbackError;
+      }
     } catch (error) {
       console.error("Failed to copy text:", error);
+      // Optionally show user feedback that copy failed
+      // You could dispatch a toast notification here
     }
   };
 
