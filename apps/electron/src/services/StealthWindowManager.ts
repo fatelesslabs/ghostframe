@@ -1,4 +1,3 @@
-// Migrated StealthWindowManager for new Electron/React setup
 import { BrowserWindow, globalShortcut, screen, app } from "electron";
 import * as path from "path";
 import { ProcessRandomizer } from "./ProcessRandomizer.js";
@@ -53,7 +52,6 @@ export class StealthWindowManager {
       }
     }
 
-    // Set up the toggle hotkey
     this.setupDefaultHotkeys(window);
 
     // Ensure no title is ever set
@@ -259,7 +257,7 @@ export class StealthWindowManager {
         console.warn("Could not update window title:", error);
         this.stopTitleRandomization();
       }
-    }, 30000 + Math.random() * 30000); // 30-60 seconds
+    }, 30000 + Math.random() * 30000);
   }
 
   stopTitleRandomization(): void {

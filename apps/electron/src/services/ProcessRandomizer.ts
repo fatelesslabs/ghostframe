@@ -1,4 +1,3 @@
-// Migrated ProcessRandomizer for new Electron/React setup as ES module
 const PREFIXES = [
   "System",
   "Desktop",
@@ -134,7 +133,6 @@ export class ProcessRandomizer {
     this.currentRandomName = this.generateRandomExecutableName();
     this.currentRandomDisplayName = this.generateRandomProcessName(true);
 
-    // Set process title for task manager stealth
     this.setRandomProcessTitle();
 
     console.log(`Process name: ${this.currentRandomName}`);

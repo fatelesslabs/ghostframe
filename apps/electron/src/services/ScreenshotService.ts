@@ -1,11 +1,10 @@
-// Migrated ScreenshotService for new Electron/React setup
 import { screen, desktopCapturer, nativeImage } from "electron";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 
 export interface ScreenshotOptions {
-  quality?: number; // 1-100 for JPEG
+  quality?: number;
   format?: "jpeg" | "png";
   fullScreen?: boolean;
   displayId?: string;
@@ -19,7 +18,7 @@ export interface ScreenshotOptions {
 
 export interface ScreenshotResult {
   success: boolean;
-  data?: string; // base64 encoded image
+  data?: string;
   metadata?: {
     width: number;
     height: number;
@@ -44,12 +43,11 @@ export class ScreenshotService {
       const defaultOptions: Required<ScreenshotOptions> = {
         quality: options.quality || 80,
         format: options.format || "jpeg",
-        fullScreen: options.fullScreen !== false, // Default to true
+        fullScreen: options.fullScreen !== false,
         displayId: options.displayId || "primary",
         crop: options.crop || { x: 0, y: 0, width: 0, height: 0 },
       };
 
-      // Get available displays
       const displays = screen.getAllDisplays();
       const targetDisplay =
         defaultOptions.displayId === "primary"
@@ -58,7 +56,6 @@ export class ScreenshotService {
               (d) => d.id.toString() === defaultOptions.displayId
             ) || screen.getPrimaryDisplay();
 
-      // Capture screen using desktopCapturer
       const sources = await desktopCapturer.getSources({
         types: ["screen"],
         thumbnailSize: {
@@ -78,7 +75,6 @@ export class ScreenshotService {
 
       let image = screenSource.thumbnail;
 
-      // Apply cropping if specified
       if (defaultOptions.crop.width > 0 && defaultOptions.crop.height > 0) {
         const cropRect = {
           x: Math.max(0, defaultOptions.crop.x),
@@ -96,7 +92,6 @@ export class ScreenshotService {
         image = image.crop(cropRect);
       }
 
-      // Convert to desired format
       let imageData: string;
       if (defaultOptions.format === "jpeg") {
         imageData = image.toJPEG(defaultOptions.quality).toString("base64");
@@ -104,7 +99,6 @@ export class ScreenshotService {
         imageData = image.toPNG().toString("base64");
       }
 
-      // Cache the screenshot
       this.lastScreenshot = imageData;
 
       const result: ScreenshotResult = {
@@ -119,7 +113,6 @@ export class ScreenshotService {
         },
       };
 
-      // Call callback if set
       if (this.onScreenshotCallback) {
         this.onScreenshotCallback(result);
       }
@@ -148,7 +141,7 @@ export class ScreenshotService {
     }
 
     try {
-      const intervalMs = Math.max(1000, intervalSeconds * 1000); // Minimum 1 second
+      const intervalMs = Math.max(1000, intervalSeconds * 1000);
 
       this.periodicInterval = setInterval(async () => {
         await this.takeScreenshot(options);
@@ -159,7 +152,6 @@ export class ScreenshotService {
         `Started periodic screenshot capture every ${intervalSeconds} seconds`
       );
 
-      // Take initial screenshot
       await this.takeScreenshot(options);
 
       return { success: true };
@@ -196,7 +188,6 @@ export class ScreenshotService {
       const homeDir = os.homedir();
       const screenshotsDir = path.join(homeDir, "ghostframe-screenshots");
 
-      // Create directory if it doesn't exist
       if (!fs.existsSync(screenshotsDir)) {
         fs.mkdirSync(screenshotsDir, { recursive: true });
       }
@@ -205,7 +196,6 @@ export class ScreenshotService {
       const fileName = filename || `screenshot-${timestamp}.jpg`;
       const filePath = path.join(screenshotsDir, fileName);
 
-      // Convert base64 to buffer and save
       const buffer = Buffer.from(data, "base64");
       fs.writeFileSync(filePath, buffer);
 
@@ -231,7 +221,6 @@ export class ScreenshotService {
 
   async captureWindow(windowTitle?: string): Promise<ScreenshotResult> {
     try {
-      // Get window sources
       const sources = await desktopCapturer.getSources({
         types: ["window"],
         thumbnailSize: { width: 1920, height: 1080 },
@@ -245,7 +234,7 @@ export class ScreenshotService {
       }
 
       if (!targetSource && sources.length > 0) {
-        targetSource = sources[0]; // Use first window if no specific title found
+        targetSource = sources[0];
       }
 
       if (!targetSource) {
