@@ -1,4 +1,11 @@
-# Logs
+node_modules/
+out/
+dist-electron/
+dist-react/
+.DS_Store
+*.log
+*.tsbuildinfo
+.vite/# Logs
 logs
 *.log
 npm-debug.log*

@@ -1,8 +1,11 @@
 {
   "appId": "com.fatelesslabs.ghostframe",
-  "files": ["dist-electron", "dist-react"],
-  "extraResources": ["dist-electron/preload.cjs"],
-  "icon": "./ghostframe.jpg",
+  "files": ["out/electron", "out/renderer"],
+  "extraResources": ["out/electron/preload.cjs"],
+  "directories": {
+    "output": "out/build"
+  },
+  "icon": "./assets/ghostframe.jpg",
   "mac": {
     "target": "dmg"
   },

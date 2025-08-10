@@ -3,19 +3,19 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "main": "dist-electron/main.js",
+  "main": "out/electron/main.js",
   "scripts": {
     "dev": "npm-run-all --parallel dev:react dev:electron",
     "build": "npm-run-all build:react build:electron",
-    "dev:react": "vite",
+    "dev:react": "vite --config ./apps/renderer/vite.config.ts",
     "dev:electron": "npm run build:electron && cross-env NODE_ENV=development electron .",
-    "build:react": "tsc -b && vite build",
-    "build:electron": "tsc --project src/electron/tsconfig.json",
+    "build:react": "vite build --config ./apps/renderer/vite.config.ts",
+    "build:electron": "tsc --project apps/electron/tsconfig.json",
     "lint": "eslint .",
     "preview": "vite preview",
-    "dist:mac": "npm run build:electron && npm run build:react && electron-builder --mac --arm64",
-    "dist:win": "npm run build:electron && npm run build:react && electron-builder --win --x64",
-    "dist:linux": "npm run build:electron && npm run build:react && electron-builder --linux --x64"
+    "out:mac": "electron-builder --mac --arm64 --dir",
+    "out:win": "electron-builder --win --x64 --dir",
+    "out:linux": "electron-builder --linux --x64 --dir"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.57.0",

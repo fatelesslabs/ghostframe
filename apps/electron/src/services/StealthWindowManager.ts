@@ -42,7 +42,7 @@ export class StealthWindowManager {
       window.loadURL("http://localhost:5123");
       window.webContents.openDevTools({ mode: "detach" });
     } else {
-      window.loadFile(path.join(app.getAppPath(), "dist-react/index.html"));
+      window.loadFile(path.join(app.getAppPath(), "out/renderer/index.html"));
       // Enable content protection by default in production
       try {
         this.enableContentProtection(window);
