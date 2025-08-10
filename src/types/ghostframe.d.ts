@@ -10,10 +10,13 @@ declare global {
             | string
             | { message: string; apiKey?: string; customInstructions?: string }
         ) => Promise<{ success: boolean; response?: any }>;
-        initialize?: (config: any) => Promise<any>;
+        initialize?: (
+          config: any & { verbosity?: "short" | "verbose" }
+        ) => Promise<any>;
         sendAudio?: (audioData: any) => Promise<any>;
         sendScreenshot?: (imageData: string) => Promise<any>;
         getStoredConfig?: () => Promise<any>;
+        setVerbosity?: (level: "short" | "verbose") => Promise<any>;
       };
       capture: {
         startAudio: () => Promise<{ success: boolean }>;

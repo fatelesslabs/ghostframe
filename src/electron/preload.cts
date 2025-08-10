@@ -9,6 +9,7 @@ export interface GhostframeAPI {
     sendAudio: (audioData: string) => Promise<any>;
     sendScreenshot: (imageData: string) => Promise<any>;
     getStoredConfig: () => Promise<any>;
+    setVerbosity?: (level: "short" | "verbose") => Promise<any>;
   };
 
   // Browser Automation
@@ -80,6 +81,7 @@ const ghostframeAPI: GhostframeAPI = {
     sendScreenshot: (imageData) =>
       ipcRenderer.invoke("ai:sendScreenshot", imageData),
     getStoredConfig: () => ipcRenderer.invoke("ai:getStoredConfig"),
+    setVerbosity: (level) => ipcRenderer.invoke("ai:setVerbosity", level),
   },
 
   automation: {

@@ -191,6 +191,13 @@ ipcMain.handle("ai:sendAudio", async (_event, audioData) => {
   return await aiService.sendAudio(audioData);
 });
 
+ipcMain.handle(
+  "ai:setVerbosity",
+  async (_event, level: "short" | "verbose") => {
+    return await aiService.setVerbosity(level);
+  }
+);
+
 ipcMain.handle("ai:sendScreenshot", async (_event, imageData) => {
   return await aiService.sendScreenshot(imageData);
 });

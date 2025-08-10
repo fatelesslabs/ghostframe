@@ -40,6 +40,7 @@ const App = () => {
   );
   const [showInput, setShowInput] = useState(false);
   const [conversationStarted, setConversationStarted] = useState(false);
+  const [showHotkeys, setShowHotkeys] = useState(false);
 
   const { settings, setSettings } = useSettings();
   const { isAiReady, aiStatus } = useAI(settings);
@@ -73,7 +74,6 @@ const App = () => {
     }
   }, [conversationStarted]);
 
-  // Ensure UI shows conversations when they're created via audio transcription
   useEffect(() => {
     let t: any;
     if (conversations.length > 0 && mode === "assistant") {
@@ -86,7 +86,13 @@ const App = () => {
     <TooltipProvider>
       <div
         className="app-container text-white font-sans p-6 h-screen overflow-hidden"
-        style={{ opacity: (settings.windowOpacity || 85) / 100 }}
+        style={{
+          opacity: (settings.windowOpacity || 85) / 100,
+          filter: settings.highContrast
+            ? "contrast(1.25) saturate(1.1)"
+            : undefined,
+          fontSize: `${(settings.fontScale ?? 1.0) * 16}px`,
+        }}
       >
         <div className="bg-black/85 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl transition-all duration-300 p-6 h-full overflow-hidden flex flex-col max-w-full">
           {/* Header with AI Status Badge */}
@@ -118,10 +124,8 @@ const App = () => {
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
-
               {/* System Controls with AI Status and drag handle */}
               <div className="flex items-center space-x-2">
-                {/* AI Status Badge */}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Badge
@@ -172,7 +176,6 @@ const App = () => {
                     </p>
                   </TooltipContent>
                 </Tooltip>
-
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -203,7 +206,6 @@ const App = () => {
                     </p>
                   </TooltipContent>
                 </Tooltip>
-
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -228,7 +230,6 @@ const App = () => {
                 </Tooltip>
               </div>
             </div>
-
             {/* Mode-Specific Controls */}
             {mode === "assistant" && (
               <div className="assistant-controls">
@@ -265,12 +266,10 @@ const App = () => {
                         </p>
                       </TooltipContent>
                     </Tooltip>
-
                     <div className="flex items-center space-x-3 flex-1">
                       <div className="timer-display">{timer}</div>
                     </div>
                   </div>
-
                   {/* Conversation Navigation (like cheating-daddy but for full conversations) */}
                   {conversations.length > 0 && (
                     <div className="flex items-center space-x-2">
@@ -290,11 +289,9 @@ const App = () => {
                           <p>Previous conversation (Ctrl+←)</p>
                         </TooltipContent>
                       </Tooltip>
-
                       <span className="response-counter text-xs text-white/60">
                         {getConversationCounter()}
                       </span>
-
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
@@ -316,7 +313,6 @@ const App = () => {
                       </Tooltip>
                     </div>
                   )}
-
                   {/* Assistant Actions */}
                   <div className="action-buttons">
                     <Tooltip>
@@ -343,7 +339,6 @@ const App = () => {
                 </div>
               </div>
             )}
-
             {mode === "automation" && (
               <div className="automation-controls">
                 <div className="flex items-center justify-between">
@@ -372,7 +367,6 @@ const App = () => {
               </div>
             )}
           </div>
-
           {/* Main Content Area */}
           <div className="content-area flex-1 overflow-y-auto min-h-0 max-w-full">
             {mode === "assistant" && (
@@ -395,16 +389,16 @@ const App = () => {
                               {getCurrentConversation()?.userMessage}
                             </div>
                             {/* Screenshot preview (disabled per request)
-                            {getCurrentConversation()?.screenshotData && (
-                              <div className="mt-3">
-                                <img
-                                  src={getCurrentConversation()?.screenshotData}
-                                  alt="screenshot preview"
-                                  className="max-w-[240px] max-h-[140px] rounded border border-white/10 shadow-md"
-                                />
-                              </div>
-                            )}
-                            */}
+                            {getCurrentConversation()?.screenshotData && (
+                              <div className="mt-3">
+                                <img
+                                  src={getCurrentConversation()?.screenshotData}
+                                  alt="screenshot preview"
+                                  className="max-w-[240px] max-h-[140px] rounded border border-white/10 shadow-md"
+                                />
+                              </div>
+                            )}
+                            */}
                             <div className="text-xs text-blue-300/60 mt-2">
                               {new Date(
                                 getCurrentConversation()?.timestamp || ""
@@ -413,7 +407,6 @@ const App = () => {
                           </div>
                         </div>
                       </div>
-
                       {/* AI Response */}
                       <div className="bg-black/20 backdrop-blur-xl rounded-xl p-4 border border-white/10">
                         <div className="flex items-start space-x-3">
@@ -509,7 +502,6 @@ const App = () => {
                     </p>
                   </div>
                 )}
-
                 {/* Always show AssistantView when there are conversations or when showInput is true */}
                 {(showInput || conversations.length > 0) && (
                   <AssistantView

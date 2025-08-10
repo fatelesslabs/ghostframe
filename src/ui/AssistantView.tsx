@@ -3,6 +3,7 @@ import { Send } from "lucide-react";
 import type { AppSettings } from "./SettingsView";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface AssistantViewProps {
   settings: AppSettings;
@@ -20,8 +21,8 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
   const [inputValue, setInputValue] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [verbosity, setVerbosity] = useState<"short" | "verbose">("short"); // UI toggle only; enforced internally in AI
 
-  // Screenshot on input interactions (focus/typing/send)
   const lastCaptureAtRef = useRef<number>(0);
   const captureInFlightRef = useRef<boolean>(false);
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,9 +64,8 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
     return () => {
       if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
     };
-  }, []);
+  }, []); // Subscribe to transcription and ai-response to show transient UI states
 
-  // Subscribe to transcription and ai-response to show transient UI states
   useEffect(() => {
     const onNewTranscription = () => setIsListening(true);
     const onTranscriptionUpdate = () => setIsListening(true);
@@ -98,14 +98,12 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
       await triggerScreenshot("submit");
 
       const currentInput = inputValue;
-      setInputValue("");
+      setInputValue(""); // Start new conversation
 
-      // Start new conversation
       onStartConversation(
         currentInput,
         lastScreenshotDataRef.current || undefined
-      );
-      // Clear the last captured screenshot data after attaching it
+      ); // Clear the last captured screenshot data after attaching it
       lastScreenshotDataRef.current = null;
 
       try {
@@ -144,23 +142,28 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
-      {/* Transient capture/ai state badges */}
+            {/* Transient capture/ai state badges */}     {" "}
       <div className="flex items-center space-x-2">
+               {" "}
         {isListening && (
           <div className="text-xs px-2 py-1 rounded bg-blue-500/15 text-blue-300 border border-blue-400/20">
-            Listening…
+                        Listening…          {" "}
           </div>
         )}
+               {" "}
         {isThinking && (
           <div className="text-xs px-2 py-1 rounded bg-purple-500/15 text-purple-300 border border-purple-400/20">
-            Thinking…
+                        Thinking…          {" "}
           </div>
         )}
+             {" "}
       </div>
-      {/* Input Area */}
+            {/* Input Area */}     {" "}
       {showInput && (
         <div className="bg-black/20 backdrop-blur-xl rounded-xl p-4 border border-white/10">
+                   {" "}
           <div className="flex items-center space-x-3">
+                       {" "}
             <Input
               type="text"
               value={inputValue}
@@ -175,17 +178,50 @@ export const AssistantView: React.FC<AssistantViewProps> = ({
               autoFocus
               disabled={!isAiReady}
             />
+                       {" "}
+            <Button
+              variant={verbosity === "short" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={async () => {
+                const next = verbosity === "short" ? "verbose" : "short";
+                setVerbosity(next);
+                try {
+                  await window.ghostframe.ai?.setVerbosity?.(next);
+                } catch {}
+                toast.message(
+                  next === "short" ? "Short answers" : "Verbose answers"
+                );
+              }}
+              className="px-3"
+              title="Toggle answer length"
+            >
+              {verbosity === "short" ? "Short" : "Verbose"}
+            </Button>
+                       {" "}
             <Button
               onClick={handleSendClick}
               disabled={!inputValue.trim() || !isAiReady}
               size="sm"
               className="px-4"
             >
-              <Send className="w-4 h-4" />
+                            <Send className="w-4 h-4" />           {" "}
             </Button>
+                     {" "}
           </div>
+                   {" "}
+          {/* hint: pass to custom instructions by prefixing user's message */} 
+                 {" "}
+          <div className="mt-2 text-[10px] text-white/40">
+                       {" "}
+            {verbosity === "short"
+              ? "Answers will be concise."
+              : "Answers will include more details."}
+                     {" "}
+          </div>
+                 {" "}
         </div>
       )}
+         {" "}
     </div>
   );
 };

@@ -11,6 +11,8 @@ export interface AIConfig {
   model?: string;
   customPrompt?: string;
   language?: string;
+  // Response verbosity preference
+  verbosity?: "short" | "verbose";
   profile?:
     | "interview"
     | "sales"
@@ -119,6 +121,7 @@ export class AIService {
   private lastActivityAt: number = Date.now();
   private heartbeatIntervalMs = 15000; // 15s
   private heartbeatTimer: NodeJS.Timeout | null = null;
+  private currentVerbosity: "short" | "verbose" = "short";
 
   // Enhanced session management inspired by cheating-daddy
   private isInitializingSession = false;
@@ -152,6 +155,13 @@ export class AIService {
     const profile = config.profile || "interview";
     const promptParts = profilePrompts[profile] || profilePrompts.interview;
     const customPrompt = config.customPrompt || "";
+    const verbosity = config.verbosity || this.currentVerbosity || "short";
+
+    // Dynamic verbosity guidance appended to override any defaults in profile
+    const verbosityBlock =
+      verbosity === "verbose"
+        ? `\n\nVERBOSITY PREFERENCE (override):\n- Provide a more detailed, step-by-step answer when helpful.\n- Prefer clarity and structure (brief sections, bullets, or examples).\n- Still be focused and avoid fluff; 4-8 sentences is typical.\n`
+        : `\n\nVERBOSITY PREFERENCE (override):\n- Keep it concise (1-3 sentences).\n- Surface only the most essential points.\n`;
 
     const sections = [
       promptParts.intro,
@@ -163,6 +173,7 @@ export class AIService {
       customPrompt,
       "\n-----\n\n",
       promptParts.outputInstructions,
+      verbosityBlock,
     ];
 
     return sections.join("");
@@ -272,6 +283,8 @@ export class AIService {
       this.provider = config.provider;
       this.providerPrefix = `[${this.provider.toUpperCase()}]`;
       this.logInfo("Initializing AI with config (redacted)");
+      this.currentVerbosity =
+        config.verbosity || this.currentVerbosity || "short";
 
       // Store params for potential reconnection
       this.lastSessionParams = config;
@@ -298,6 +311,7 @@ export class AIService {
           apiKey: config.apiKey,
           profile: config.profile,
           googleSearchEnabled: config.googleSearchEnabled,
+          verbosity: this.currentVerbosity,
         });
       }
       this.logInfo("AI initialization result:", response);
@@ -785,6 +799,12 @@ export class AIService {
     try {
       if (this.session) {
         console.log("Sending text to Gemini Live session");
+        // Ensure current verbosity is reinforced without altering the visible user text
+        const preface =
+          this.currentVerbosity === "verbose"
+            ? "Please answer with a bit more detail and structure."
+            : "Please answer concisely in 1-3 sentences.";
+        await this.session.sendRealtimeInput({ text: preface });
         await this.session.sendRealtimeInput({ text: text.trim() });
         this.addToHistory(text, ""); // Response will be handled by the onmessage callback
         return { success: true };
@@ -794,6 +814,34 @@ export class AIService {
     } catch (error) {
       console.error("Error in sendGeminiMessage:", error);
       return { success: false, error: (error as Error).message };
+    }
+  }
+
+  /**
+   * Update verbosity at runtime. Applies to current session (Gemini) and future initializations.
+   */
+  async setVerbosity(
+    level: "short" | "verbose"
+  ): Promise<{ success: boolean }> {
+    this.currentVerbosity = level;
+    if (this.lastSessionParams) {
+      this.lastSessionParams = {
+        ...this.lastSessionParams,
+        verbosity: level,
+      } as AIConfig;
+    }
+    try {
+      if (this.provider === "gemini" && this.session) {
+        const text =
+          level === "verbose"
+            ? "From now on, provide more detailed, structured answers when helpful."
+            : "From now on, keep answers concise (1-3 sentences).";
+        await this.session.sendRealtimeInput({ text });
+      }
+      return { success: true };
+    } catch (e) {
+      this.logWarn("Failed to set verbosity at runtime:", e);
+      return { success: false };
     }
   }
 
