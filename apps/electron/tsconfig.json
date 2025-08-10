@@ -1,0 +1,11 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "strict": true,
+        "target": "esnext",
+        "module": "nodenext",
+        "outDir": "../../out/electron",
+        "skipLibCheck": true
+    },
+    "include": ["src"]
+}

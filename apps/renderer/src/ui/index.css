@@ -1,0 +1,313 @@
+@import "tailwindcss";
+@import url("https://fonts.cdnfonts.com/css/pp-neue-montreal");
+
+/* Base styles for dark transparent Electron app */
+body {
+  background: transparent;
+  color: #e5e7eb;
+  font-weight: 500;
+  font-family: "PP Neue Montreal", sans-serif;
+}
+
+/* Essential Electron window controls */
+.app-container {
+  -webkit-app-region: drag;
+  cursor: default;
+  user-select: none;
+}
+
+/* Make interactive elements non-draggable */
+button,
+input,
+textarea,
+select,
+a,
+[role="button"] {
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+}
+
+/* Content areas should allow interaction */
+.content-area,
+.assistant-controls,
+.automation-controls {
+  -webkit-app-region: no-drag;
+}
+
+/* Drag handle styling */
+.drag-handle {
+  -webkit-app-region: drag;
+  cursor: move;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.drag-handle:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Timer display for recording */
+.timer-display {
+  font-size: 1.5rem;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+/* Custom scrollbar styling - inspired by cheating-daddy */
+/* Remove scrollbar from body and main containers */
+body,
+.app-container {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+body::-webkit-scrollbar,
+.app-container::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Content-specific scrollbars - 6px width like cheating-daddy */
+.conversation-container::-webkit-scrollbar,
+.messages-container::-webkit-scrollbar,
+textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.conversation-container::-webkit-scrollbar-track,
+.messages-container::-webkit-scrollbar-track,
+textarea::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.conversation-container::-webkit-scrollbar-thumb,
+.messages-container::-webkit-scrollbar-thumb,
+textarea::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.conversation-container::-webkit-scrollbar-thumb:hover,
+.messages-container::-webkit-scrollbar-thumb:hover,
+textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Firefox scrollbar styling */
+.conversation-container,
+.messages-container,
+textarea {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.2);
+}
+body,
+html {
+  overflow: hidden;
+}
+
+/* Apply scrollbar only to specific content areas */
+.prose,
+.overflow-y-auto,
+[class*="overflow-y-auto"] {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.prose::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar,
+[class*="overflow-y-auto"]::-webkit-scrollbar {
+  width: 6px;
+}
+
+.prose::-webkit-scrollbar-track,
+.overflow-y-auto::-webkit-scrollbar-track,
+[class*="overflow-y-auto"]::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 0;
+  margin: 0;
+}
+
+.prose::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb,
+[class*="overflow-y-auto"]::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  border: none;
+  transition: background 0.2s ease;
+}
+
+.prose::-webkit-scrollbar-thumb:hover,
+.overflow-y-auto::-webkit-scrollbar-thumb:hover,
+[class*="overflow-y-auto"]::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.prose::-webkit-scrollbar-corner,
+.overflow-y-auto::-webkit-scrollbar-corner,
+[class*="overflow-y-auto"]::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Improve tooltip spacing and reduce congestion */
+[data-radix-tooltip-content] {
+  z-index: 9999;
+  animation-duration: 200ms;
+  animation-timing-function: ease-out;
+}
+
+/* Better spacing for hoverable elements */
+.action-buttons {
+  gap: 0.75rem;
+}
+
+.header-container {
+  margin-bottom: 1.5rem;
+}
+
+/* Enhanced markdown prose styling */
+.prose {
+  max-width: none;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.6;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  width: 100%;
+}
+
+.prose * {
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  color: rgba(255, 255, 255, 0.95);
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  font-weight: 600;
+}
+
+.prose h1 {
+  font-size: 1.5em;
+}
+.prose h2 {
+  font-size: 1.3em;
+}
+.prose h3 {
+  font-size: 1.15em;
+}
+
+.prose p {
+  margin-bottom: 1em;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.prose ul,
+.prose ol {
+  margin: 1em 0;
+  padding-left: 1.5em;
+}
+
+.prose li {
+  margin-bottom: 0.5em;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.prose strong,
+.prose b {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+}
+
+.prose em,
+.prose i {
+  color: rgba(255, 255, 255, 0.9);
+  font-style: italic;
+}
+
+.prose a {
+  color: #60a5fa;
+  text-decoration: underline;
+  text-decoration-color: rgba(96, 165, 250, 0.5);
+  transition: all 0.2s ease;
+}
+
+.prose a:hover {
+  color: #93c5fd;
+  text-decoration-color: rgba(147, 197, 253, 0.7);
+}
+
+.prose pre {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1em;
+  margin: 1.5em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  line-height: 1.4;
+  white-space: pre;
+  word-wrap: normal;
+  max-width: 100%;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875em;
+  white-space: pre;
+  word-wrap: normal;
+  display: block;
+  overflow-x: auto;
+}
+
+.prose code {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.875em;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.prose blockquote {
+  border-left: 4px solid rgba(96, 165, 250, 0.5);
+  padding-left: 1em;
+  margin: 1.5em 0;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+}
+
+.prose th,
+.prose td {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+
+.prose th {
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.prose td {
+  background: rgba(255, 255, 255, 0.02);
+}

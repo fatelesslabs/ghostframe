@@ -1,23 +1,12 @@
 {
+  "files": [],
+  "references": [
+    { "path": "./apps/renderer/tsconfig.json" }
+  ],
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "CommonJS",
-    "lib": ["ES2020", "DOM"],
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": false,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "resolveJsonModule": true,
-    "declaration": true,
-    "sourceMap": true,
-    "noEmitOnError": false
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
-} 
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./apps/renderer/src/*"]
+    }
+  }
+}
